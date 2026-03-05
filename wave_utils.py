@@ -6,6 +6,9 @@ import numpy as np
 
 class WaveUtils:
     __c = 299_792_458.0  # speed of light
+    __n_los = 2.0  # straight line between BS and UE
+    __n_nlos = 3.0  # buildings between BS and UE
+    __los_threshold = 20  # 20 meters before there's a building blocking you
 
     @staticmethod
     def pd0(f_c: float, d0: float = 1):
@@ -25,13 +28,13 @@ class WaveUtils:
         g_tx = bs.g_tx  # transimition GAIN
         g_rx = ue.g_rx  # reception GAIN
 
-        n_los = 2.0  # straight line between BS and UE
-        n_nlos = 3.0  # buildings between BS and UE
-        los_threshold = 20  # 20 meters before there's a building blocking toy
-
         distance_ue_bs = LocationUtils.haversine(pointA=bs.latlng, pointB=ue.latlng)
         distance_ue_bs = max(distance_ue_bs, 1)  # protect against log(0)
-        n = n_los if distance_ue_bs <= los_threshold else n_nlos
+        n = (
+            WaveUtils.__n_los
+            if distance_ue_bs <= WaveUtils.__los_threshold
+            else WaveUtils.__n_nlos
+        )
 
         pl = WaveUtils.path_loss(distance=distance_ue_bs, n=n, f_c=bs.frequency)
 
