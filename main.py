@@ -22,9 +22,9 @@ car = UserEquipment(
 
 
 rsrp1 = WaveUtils.calculate_rsrp(ue=car, bs=bs1)
-print(f"rsrp1: {rsrp1}")
+print(f"rsrp1: {rsrp1:.2f} dBm")
 
-car.move_meters(200)
+car.move_meters(200, angle=90)
 
 rsrp2 = WaveUtils.calculate_rsrp(ue=car, bs=bs1)
-print(f"rsrp2: {rsrp2}")
+print(f"rsrp2: {rsrp2:.2f} dBm")
