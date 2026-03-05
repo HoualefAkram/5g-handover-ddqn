@@ -9,15 +9,15 @@ bs1 = BaseTower(
     id=0,
     latlng=LatLng(36.7538, 3.0588),  # Algiers, Algeria
     connected_ues=[],
-    p_tx=43.0,  # dBm — typical 5G macro BS transmit power
-    frequency=3.5e9,  # Hz  — 3500 MHz, standard 5G sub-6GHz band
-    g_tx=15.0,  # dBi — typical macro sector antenna gain
+    p_tx=43.0,  # typical 5G macro BS transmit power (dBm)
+    frequency=3.5e9,  # 3500 MHz, standard 5G sub-6GHz band
+    g_tx=15.0,  # typical macro sector antenna gain (dBi)
 )
 
 car = UserEquipment(
     id=0,
     latlng=LatLng(36.7520, 3.0560),  # ~300m away from BS1
-    g_rx=0.0,  # dBi — omnidirectional phone/car antenna
+    g_rx=0.0,  # dBi - omnidirectional phone/car antenna
     serving_bs=bs1,  # starts connected to bs1
 )
 
