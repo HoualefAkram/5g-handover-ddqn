@@ -59,5 +59,14 @@ class WaveUtils:
         return 10 * np.log10(total_linear)
 
     @staticmethod
-    def calculate_rsrq(rsrp: float, n: int, rssi: float):
-        return 10 * np.log10(n) + rsrp - rssi
+    def calculate_rsrq(
+        serving_tower: BaseTower,
+        serving_rsrp: float,
+        all_rsrp_dBm: list[float],
+        n: int = 100,  # resource blocks
+    ):
+        rssi = WaveUtils.calculate_rssi(
+            all_rsrp_dBm=all_rsrp_dBm,
+            bandwidth_hz=serving_tower.bandwidth,
+        )
+        return 10 * np.log10(n) + serving_rsrp - rssi
