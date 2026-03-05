@@ -14,10 +14,10 @@ class BaseTower:
         id: int,
         latlng: LatLng,
         connected_ues: list[UserEquipment],
-        p_tx: float,
-        frequency: float,  # 4G LTE (common)2100 MHz, 4G LTE (low band)800 MHz, 5G sub-6GHz 3500 MHz, 5G mmWave 28 GHz
-        bandwidth: float,  # channel width, 20 MHz Minimum 5G deployment, 50 MHz Common 5G urban, 100 MHz Typical 5G urban, 200 MHz High-end 5G
-        g_tx: float,  # +14 to +17 dBi
+        p_tx: float = 43.0,
+        frequency: float = 3.5e9,  # 4G LTE (common)2100 MHz, 4G LTE (low band)800 MHz, 5G sub-6GHz 3500 MHz, 5G mmWave 28 GHz
+        bandwidth: float = 100e6,  # channel width, 20 MHz Minimum 5G deployment, 50 MHz Common 5G urban, 100 MHz Typical 5G urban, 200 MHz High-end 5G
+        g_tx: float = 15,  # +14 to +17 dBi
         ng_ran_report: Optional[NGRANReport] = None,
     ):
         self.id = id

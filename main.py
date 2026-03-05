@@ -8,16 +8,11 @@ bs1 = BaseTower(
     id=0,
     latlng=LatLng(35.717583, -0.540996),  # ayachi
     connected_ues=[],
-    p_tx=43.0,  # typical 5G macro BS transmit power (dBm)
-    frequency=3.5e9,  # 3500 MHz, standard 5G sub-6GHz band
-    bandwidth=100e6,  # 100 MHz,  typical 5G urban deployment
-    g_tx=15.0,  # typical macro sector antenna gain (dBi)
 )
 
 car = UserEquipment(
     id=0,
     latlng=LatLng(35.717122, -0.540052),  # Home
-    g_rx=0.0,  # omnidirectional phone/car antenna (dBi)
     serving_bs=bs1,  # starts connected to bs1
 )
 

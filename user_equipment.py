@@ -10,7 +10,7 @@ class UserEquipment:
         self,
         id: int,
         latlng: LatLng,
-        g_rx: float,
+        g_rx: float = 0.0,
         serving_bs: Optional[BaseTower] = None,
     ):
         self.id: int = id
