@@ -33,7 +33,7 @@ class LocationUtils:
             np.sin(dlat / 2) ** 2
             + np.cos(lat1_rad) * np.cos(lat2_rad) * np.sin(dlon / 2) ** 2
         )
-        c = 2 * np.atan2(np.sqrt(a), np.sqrt(1 - a))
+        c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
 
         # Calculate the final distance
         distance = R * c
@@ -58,13 +58,13 @@ class LocationUtils:
         ad = distance / R
 
         # Calculate new latitude
-        lat2_rad = np.asin(
+        lat2_rad = np.arcsin(
             np.sin(lat1_rad) * np.cos(ad)
             + np.cos(lat1_rad) * np.sin(ad) * np.cos(angle_rad)
         )
 
         # Calculate new longitude
-        lon2_rad = lon1_rad + np.atan2(
+        lon2_rad = lon1_rad + np.arctan2(
             np.sin(angle_rad) * np.sin(ad) * np.cos(lat1_rad),
             np.cos(ad) - np.sin(lat1_rad) * np.sin(lat2_rad),
         )
