@@ -15,6 +15,20 @@ class WaveUtils:
     __los_threshold = 20  # 20 meters before there's a building blocking you
 
     @staticmethod
+    def get_resource_blocks(bandwidth_hz: float) -> int:
+        rb_table = {
+            5e6: 25,
+            10e6: 52,
+            15e6: 79,
+            20e6: 100,
+            25e6: 128,
+            50e6: 270,
+            100e6: 132,  # 5G NR sub-6GHz
+            200e6: 264,
+        }
+        return rb_table.get(bandwidth_hz, 100)  # default 100
+
+    @staticmethod
     def pd0(f_c: float, d0: float = 1):
         # PL(d0) = 20 * log10(4 pi * d0 * f_c / c)
         return 20 * np.log10(4 * np.pi * d0 * f_c / WaveUtils.__c)
@@ -67,10 +81,10 @@ class WaveUtils:
         serving_tower: BaseTower,
         serving_rsrp: float,
         all_rsrp_dBm: list[float],
-        n: int = 100,  # resource blocks
     ):
         rssi = WaveUtils.calculate_rssi(
             all_rsrp_dBm=all_rsrp_dBm,
             bandwidth_hz=serving_tower.bandwidth,
         )
+        n = WaveUtils.get_resource_blocks(serving_tower.bandwidth)
         return 10 * np.log10(n) + serving_rsrp - rssi

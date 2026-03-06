@@ -5,27 +5,27 @@ from wave_utils import WaveUtils
 
 
 bs1 = BaseTower(
-    id=0,
+    id=1,
     latlng=LatLng(35.717583, -0.540996),  # top left
     connected_ues=[],
 )
 
 
 bs2 = BaseTower(
-    id=0,
+    id=2,
     latlng=LatLng(35.717558, -0.539236),  # top right
     connected_ues=[],
 )
 
 bs3 = BaseTower(
-    id=0,
+    id=3,
     latlng=LatLng(35.717580, -0.540077),  # center top
     connected_ues=[],
 )
 
 
 car = UserEquipment(
-    id=0,
+    id=100,
     latlng=LatLng(35.717122, -0.540052),  # Home
     serving_bs=bs2,  # starts connected to bs2
 )
