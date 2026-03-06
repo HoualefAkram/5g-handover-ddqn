@@ -82,9 +82,9 @@ class WaveUtils:
         serving_rsrp: float,
         all_rsrp_dBm: list[float],
     ):
+        # 10 * np.log10(n) + serving_rsrp - rssi (*n is removed, since rsrp returns the total Power, not only per block)
         rssi = WaveUtils.calculate_rssi(
             all_rsrp_dBm=all_rsrp_dBm,
             bandwidth_hz=serving_tower.bandwidth,
         )
-        n = WaveUtils.get_resource_blocks(serving_tower.bandwidth)
-        return 10 * np.log10(n) + serving_rsrp - rssi
+        return serving_rsrp - rssi
