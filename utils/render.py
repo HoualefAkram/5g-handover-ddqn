@@ -11,7 +11,7 @@ class Render:
     def render_map(
         bs_list: list[BaseTower],
         ue_list: list[UserEquipment] | UserEquipment,
-        output: str = "outputs/simulation.html",
+        output: str = "outputs/folium/simulation.html",
     ):
         if isinstance(ue_list, UserEquipment):
             ue_list = [ue_list]

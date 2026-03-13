@@ -3,6 +3,7 @@ from data_models.base_tower import BaseTower
 from data_models.latlng import LatLng
 from utils.path_gen import PathGeneration
 from utils.map_downloader import MapDownloader
+from utils.tower_downloader import TowerDownloader
 from utils.render import Render
 from utils.trace_parser import TraceParser
 
@@ -20,38 +21,24 @@ MapDownloader.download_osm_by_bbox(
 )
 
 
-bs1 = BaseTower(
-    id=1,
-    latlng=LatLng(35.717583, -0.540996),  # top left
-    connected_ues=[],
-)
-
-
-bs2 = BaseTower(
-    id=2,
-    latlng=LatLng(35.717558, -0.539236),  # top right
-    connected_ues=[],
-)
-
-bs3 = BaseTower(
-    id=3,
-    latlng=LatLng(35.717580, -0.540077),  # center top
-    connected_ues=[],
+bs_list: list[BaseTower] = TowerDownloader.get_towers_in_bbox(
+    top_left=MAP_TOP_LEFT,
+    bottom_right=MAP_BOTTOM_RIGHT,
 )
 
 
 cars = [
     UserEquipment(
         id=i,
-        serving_bs=bs2,  # starts connected to bs2
-        all_bs=[bs1, bs2, bs3],
+        serving_bs=bs_list[0],  # starts connected to bs0
+        all_bs=bs_list,
         print_report_on_movement=True,
     )
     for i in range(NUMBER_OF_UE)
 ]
 
 for i in range(NUMBER_OF_UE):
-    bs2.add_ue(ue=cars[i])
+    bs_list[0].add_ue(ue=cars[i])
 
 path_gen = PathGeneration(stop_trip_generation_after=NUMBER_OF_UE)
 path_gen.run()
@@ -63,4 +50,4 @@ for id, path in vehicle_paths.items():
     for point in path:
         car.move_to(point)
 
-Render.render_map(bs_list=[bs1, bs2, bs3], ue_list=cars)
+Render.render_map(bs_list=bs_list, ue_list=cars)
