@@ -5,10 +5,17 @@ from utils.path_gen import PathGeneration
 from utils.map_downloader import MapDownloader
 from utils.render import Render
 
+
+MAP_TOP_LEFT = LatLng(35.734904, -0.578253)
+MAP_BOTTOM_RIGHT = LatLng(35.698884, -0.513860)
+NUMBER_OF_UE = 1
+# --- outputs ---
+OSM_DOWNLOAD_PATH = "maps/map.osm"
+
 MapDownloader.download_osm_by_bbox(
-    top_left=LatLng(35.734904, -0.578253),
-    bottom_right=LatLng(35.698884, -0.513860),
-    output_file="maps/map.osm",
+    top_left=MAP_TOP_LEFT,
+    bottom_right=MAP_BOTTOM_RIGHT,
+    output_file=OSM_DOWNLOAD_PATH,
 )
 
 
