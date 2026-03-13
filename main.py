@@ -42,7 +42,6 @@ bs3 = BaseTower(
 
 car = UserEquipment(
     id=0,
-    latlng=LatLng(35.717122, -0.540052),  # Home
     serving_bs=bs2,  # starts connected to bs2
     all_bs=[bs1, bs2, bs3],
     print_report_on_movement=True,

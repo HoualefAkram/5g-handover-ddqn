@@ -1,3 +1,4 @@
+from typing import Optional
 from data_models.latlng import LatLng
 from utils.location_utils import LocationUtils
 from typing import Optional
@@ -11,8 +12,8 @@ class UserEquipment:
     def __init__(
         self,
         id: int,
-        latlng: LatLng,
         all_bs: list[BaseTower],
+        latlng: Optional[LatLng] = None,  # can be null only if move_to() is used
         g_rx: float = 0.0,
         serving_bs: Optional[BaseTower] = None,
         print_report_on_movement: bool = False,
@@ -21,7 +22,7 @@ class UserEquipment:
         self.g_rx: float = g_rx  # 0 to +2 dBi
         self.latlng: LatLng = latlng
         self.serving_bs = serving_bs
-        self.path_history: list[LatLng] = [latlng]
+        self.path_history: list[LatLng] = list(latlng) if (latlng) else list()
         self.all_bs = all_bs
         self.print_report_on_movement = print_report_on_movement
 
