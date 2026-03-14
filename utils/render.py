@@ -43,18 +43,20 @@ class Render:
                 ).add_to(m)
 
             # UE initial position
-            folium.Marker(
-                location=[ue.path_history[0].lat, ue.path_history[0].long],
-                tooltip=f"UE {ue.id} (start)",
-                icon=folium.Icon(color=color, icon="car", prefix="fa"),
-            ).add_to(m)
+            if ue.path_history:
+                folium.Marker(
+                    location=[ue.path_history[0].lat, ue.path_history[0].long],
+                    tooltip=f"UE {ue.id} (start)",
+                    icon=folium.Icon(color=color, icon="car", prefix="fa"),
+                ).add_to(m)
 
             # UE current position
-            folium.Marker(
-                location=[ue.latlng.lat, ue.latlng.long],
-                tooltip=f"UE {ue.id}",
-                icon=folium.Icon(color=color, icon="car", prefix="fa"),
-            ).add_to(m)
+            if ue.latlng:
+                folium.Marker(
+                    location=[ue.latlng.lat, ue.latlng.long],
+                    tooltip=f"UE {ue.id}",
+                    icon=folium.Icon(color=color, icon="car", prefix="fa"),
+                ).add_to(m)
 
         m.save(output)
         print(f"Map rendered and saved to {output}")

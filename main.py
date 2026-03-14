@@ -74,7 +74,7 @@ if __name__ == "__main__":
     # --- Configuration Parameters ---
     MAP_TOP_LEFT = LatLng(35.734904, -0.578253)
     MAP_BOTTOM_RIGHT = LatLng(35.698884, -0.513860)
-    NUMBER_OF_UE = 1
+    NUMBER_OF_UE = 3
     SEED = 100
 
     # Execute the pipeline
