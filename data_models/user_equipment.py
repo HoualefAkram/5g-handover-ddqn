@@ -111,14 +111,15 @@ class UserEquipment:
             return best_bs
         serving_rsrp = report.rsrp_values[self.serving_bs.id]
 
-        for bs_id, rsrp in report.rsrp_values.items():
-            if bs_id == self.serving_bs.id:
-                continue  # Skip current serving BS
-
-            if rsrp > serving_rsrp + handover_threshold:
-                # Find the BaseTower object for this bs_id
-                target_bs = next((bs for bs in self.all_bs if bs.id == bs_id), None)
-                return target_bs
+        best_bs_id = max(
+            (bs_id for bs_id in report.rsrp_values if bs_id != self.serving_bs.id),
+            key=report.rsrp_values.get,
+            default=None,
+        )
+        if best_bs_id is None:
+            return None
+        if report.rsrp_values[best_bs_id] > serving_rsrp + handover_threshold:
+            return next((bs for bs in self.all_bs if bs.id == best_bs_id), None)
         return None
 
     def handover(self, target_bs: BaseTower):
