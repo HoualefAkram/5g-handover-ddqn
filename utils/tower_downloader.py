@@ -3,7 +3,9 @@ from data_models.latlng import LatLng
 from data_models.base_tower import BaseTower
 import os
 from dotenv import load_dotenv
+from colorama import Fore, Style, init
 
+init(autoreset=True)
 
 SUPPORTED_TOWERS = {"LTE", "NR"}
 
@@ -21,6 +23,8 @@ class TowerDownloader:
         load_dotenv()
         OPENCELLID_KEY = os.getenv("OPEN_CELL_ID_API_KEY")
 
+        print(Fore.CYAN + "--- Fetching Base Towers from OpenCellID ---")
+
         response = requests.get(
             f"{TowerDownloader.__OPEN_CELL_ID_BASE_URL}/cell/getInArea",
             params={
@@ -33,9 +37,9 @@ class TowerDownloader:
         response.raise_for_status()
         data = response.json()
         if data.get("error", False):
-            raise Exception(
-                f"Failed to get Base Towers. status_code: {response.status_code}, error: {data.get("error", None)},code: {data.get("code", None)}"
-            )
+            error_text = f"Failed to get Base Towers. status_code: {response.status_code}, error: {data.get("error", None)},code: {data.get("code", None)}"
+            print(Fore.RED + error_text)
+            raise Exception(error_text)
 
         towers: list[BaseTower] = []
         for cell in data.get("cells", []):
@@ -50,6 +54,6 @@ class TowerDownloader:
             )
             towers.append(tower)
 
-        print(f"Fetched {len(towers)} LTE/NR BaseTowers")
+        print(Fore.GREEN + Style.BRIGHT + f"Fetched {len(towers)} LTE/NR BaseTowers")
 
         return towers

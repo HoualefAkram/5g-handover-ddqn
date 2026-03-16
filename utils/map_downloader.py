@@ -3,6 +3,9 @@ from pathlib import Path
 from data_models.latlng import LatLng
 import xml.etree.ElementTree as ET
 import os
+from colorama import Fore, Style, init
+
+init(autoreset=True)
 
 
 class MapDownloader:
@@ -38,24 +41,23 @@ class MapDownloader:
                 and MapDownloader.__is_identical(max_lon, osm_maxlon)
                 and MapDownloader.__is_identical(max_lat, osm_maxlat)
             ):
-                print("Map already downloaded. Skipping...")
+                print(Fore.YELLOW + "Map already downloaded. Skipping...")
                 return None
 
-            print(
-                f"Removing old map. missmatch map:\n{min_lon}:{osm_minlon}\n{min_lat}:{osm_minlat}\n{max_lon}:{osm_maxlon}\n{max_lat}:{osm_maxlat}"
-            )
+            print(Fore.RED + "Removing old map...")
             os.remove(output_file)
 
         Path(output_file).parent.mkdir(parents=True, exist_ok=True)
         url = f"https://overpass-api.de/api/map?bbox={min_lon},{min_lat},{max_lon},{max_lat}"
-        print(f"Downloading OSM data from Overpass API to {output_file}...")
+        print(Fore.CYAN + f"Downloading OSM data from Overpass API to {output_file}...")
         response = requests.get(url, stream=True)
         if response.status_code == 200:
             with open(output_file, "wb") as file:
                 for chunk in response.iter_content(chunk_size=8192):
                     file.write(chunk)
-            print("Download complete!")
+            print(Fore.GREEN + Style.BRIGHT + "Download complete!")
         else:
+            print(Fore.RED + Style.BRIGHT + "Download failed!")
             raise ConnectionError(
                 f"Failed to download map. HTTP Status: {response.status_code}\n"
                 f"Response: {response.text}"

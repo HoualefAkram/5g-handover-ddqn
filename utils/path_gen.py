@@ -3,6 +3,9 @@ from pathlib import Path
 import os
 import sys
 from random import randint
+from colorama import Fore, Style, init
+
+init(autoreset=True)
 
 
 class PathGeneration:
@@ -111,17 +114,21 @@ class PathGeneration:
         ]
 
     def run(self) -> subprocess.CompletedProcess:
+        print(Fore.CYAN + Style.BRIGHT + "--- Starting SUMO processes ---")
         self._validate_and_prepare()
-
         for cmd in self._build_simulation_scenario_cmds():
             cmd_str = " ".join(cmd)
-            print(f"Running: {cmd_str}")
-            subprocess.run(cmd, check=True)
+            print(Fore.LIGHTCYAN_EX + f"Running: {cmd_str}")
+            subprocess.run(
+                cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
 
         cmd = self._build_generate_fcd_trace_cmd()
         cmd_str = " ".join(cmd)
-        print(f"Running: {cmd_str}")
-        return subprocess.run(cmd, check=True)
+        print(Fore.LIGHTCYAN_EX + f"Running: {cmd_str}")
+        return subprocess.run(
+            cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
 
     @staticmethod
     def quick_run(osm_file: str = "maps/map.osm", gui: bool = False):

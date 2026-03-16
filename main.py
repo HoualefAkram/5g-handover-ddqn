@@ -6,6 +6,9 @@ from utils.map_downloader import MapDownloader
 from utils.tower_downloader import TowerDownloader
 from utils.render import Render
 from utils.trace_parser import TraceParser
+from colorama import Fore, Style, init
+
+init(autoreset=True)
 
 
 def run_simulation(
@@ -17,7 +20,7 @@ def run_simulation(
 ) -> None:
     """Runs the complete city car simulator pipeline."""
 
-    print(f"--- Starting Simulation for {num_ue} UEs ---")
+    print(Fore.CYAN + Style.BRIGHT + f"--- Starting Simulation for {num_ue} UEs ---")
 
     # 1. Download Map
     MapDownloader.download_osm_by_bbox(
@@ -33,7 +36,11 @@ def run_simulation(
     )
 
     if not bs_list:
-        print("Error: No base stations found in this area. Exiting.")
+        print(
+            Fore.RED
+            + Style.BRIGHT
+            + "Error: No base stations found in this area. Exiting."
+        )
         return
 
     # 3. Initialize User Equipment (Cars)
@@ -53,7 +60,7 @@ def run_simulation(
     # 5. Parse Trace and Move Cars
     timesteps: list[dict[int, LatLng]] = TraceParser.parse_fcd_trace()
 
-    print("--- Simulating Movement and Network Logic ---")
+    print(Fore.CYAN + Style.BRIGHT + "--- Simulating Movement and Network Logic ---")
     for timestep in timesteps:
         for car_id, location in timestep.items():
             if car_id in cars:  # Safe check in case SUMO spawned extra vehicles
@@ -61,12 +68,13 @@ def run_simulation(
                 car.move_to(location)
 
     # 6. Render Final Map
-    print("--- Rendering Final Output ---")
+    print(Fore.CYAN + Style.BRIGHT + "--- Rendering Final Output ---")
     Render.render_map(bs_list=bs_list, ue_list=list(cars.values()))
 
     for bs in bs_list:
         print(
-            f"\033[35mBase Station {bs.id} served UEs: {[ue.id for ue in bs.connected_ues]}\033[0m"
+            Fore.BLUE
+            + f"Base Station {bs.id} served UEs: {[ue.id for ue in bs.connected_ues]}"
         )
 
 

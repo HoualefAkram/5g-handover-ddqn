@@ -2,6 +2,9 @@ import folium
 from data_models.base_tower import BaseTower
 from data_models.user_equipment import UserEquipment
 from pathlib import Path
+from colorama import Fore, Style, init
+
+init(autoreset=True)
 
 
 _UE_COLORS = ["blue", "purple", "orange", "darkred", "cadetblue", "darkgreen", "pink"]
@@ -59,4 +62,4 @@ class Render:
                 ).add_to(m)
 
         m.save(output)
-        print(f"Map rendered and saved to {output}")
+        print(Fore.GREEN + Style.BRIGHT + f"Map rendered and saved to {output}")
