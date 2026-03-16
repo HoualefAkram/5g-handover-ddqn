@@ -1,9 +1,15 @@
 import requests
 from data_models.latlng import LatLng
 from data_models.base_tower import BaseTower
+import os
+from dotenv import load_dotenv
+
+
+SUPPORTED_TOWERS = {"LTE", "NR"}
 
 
 class TowerDownloader:
+    __OPEN_CELL_ID_BASE_URL = "https://opencellid.org"
 
     @staticmethod
     def get_towers_in_bbox(top_left: LatLng, bottom_right: LatLng) -> list[BaseTower]:
@@ -12,38 +18,38 @@ class TowerDownloader:
         max_lat = top_left.lat
         max_lon = bottom_right.long
 
-        overpass_query = f"""
-        [out:json][timeout:25];
-        (
-          node["telecom"="antenna"]({min_lat},{min_lon},{max_lat},{max_lon});
-          node["man_made"="mast"]["tower:type"="communication"]({min_lat},{min_lon},{max_lat},{max_lon});
-        );
-        out body;
-        """
+        load_dotenv()
+        OPENCELLID_KEY = os.getenv("OPEN_CELL_ID_API_KEY")
 
-        url = "https://overpass-api.de/api/interpreter"
-        print("Fetching real-world cell towers from OpenStreetMap...")
+        response = requests.get(
+            f"{TowerDownloader.__OPEN_CELL_ID_BASE_URL}/cell/getInArea",
+            params={
+                "key": OPENCELLID_KEY,
+                "BBOX": f"{min_lat},{min_lon},{max_lat},{max_lon}",
+                "format": "json",
+            },
+        )
 
-        response = requests.post(url, data={"data": overpass_query})
-
-        if response.status_code != 200:
-            raise ConnectionError(
-                f"Failed to fetch towers. HTTP {response.status_code}"
+        response.raise_for_status()
+        data = response.json()
+        if data.get("error", False):
+            raise Exception(
+                f"Failed to get Base Towers. status_code: {response.status_code}, error: {data.get("error", None)},code: {data.get("code", None)}"
             )
 
-        data = response.json()
-        elements = data.get("elements", [])
-
-        towers = []
-        for index, element in enumerate(elements):
-            lat = element.get("lat")
-            lon = element.get("lon")
-            new_tower = BaseTower(
-                id=index + 1,
-                latlng=LatLng(lat=lat, long=lon),
+        towers: list[BaseTower] = []
+        for cell in data.get("cells", []):
+            radio = cell["radio"]
+            if radio not in SUPPORTED_TOWERS:
+                continue
+            tower = BaseTower(
+                id=cell["cellid"],
+                latlng=LatLng(cell["lat"], cell["lon"]),
+                radio=cell["radio"],
                 connected_ues=[],
             )
-            towers.append(new_tower)
+            towers.append(tower)
 
-        print(f"Successfully found and initialized {len(towers)} BaseTowers!")
+        print(f"Fetched {len(towers)} LTE/NR BaseTowers")
+
         return towers
