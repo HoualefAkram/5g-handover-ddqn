@@ -88,10 +88,10 @@ def run_simulation(
 
 if __name__ == "__main__":
     # --- Configuration Parameters ---
-    MAP_TOP_LEFT = LatLng(35.706161, -0.645196)
-    MAP_BOTTOM_RIGHT = LatLng(35.697126, -0.630677)
-    NUMBER_OF_UE = 1
-    SEED = 100
+    MAP_TOP_LEFT = LatLng(51.511308, -0.157363)
+    MAP_BOTTOM_RIGHT = LatLng(51.496028, -0.125348)
+    NUMBER_OF_UE = 5
+    SEED = 200
 
     # Execute the pipeline
     run_simulation(
