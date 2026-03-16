@@ -4,6 +4,9 @@ from utils.location_utils import LocationUtils
 from data_models.base_tower import BaseTower
 from data_models.ng_ran_report import NGRANReport
 from utils.wave_utils import WaveUtils
+from colorama import Fore, Style, init
+
+init(autoreset=True)
 
 
 class UserEquipment:
@@ -50,10 +53,11 @@ class UserEquipment:
             # Log handover decision, (or if the user connected for the first time)
             if self.serving_bs:
                 print(
-                    f"\033[31mUE {self.id} handover from BS {self.serving_bs.id} to BS {target_bs.id}\033[0m"
+                    Fore.RED
+                    + f"{self.id} handover from BS {self.serving_bs.id} to BS {target_bs.id}"
                 )
             else:
-                print(f"\033[32mUE {self.id} connecting to BS {target_bs.id}\033[0m")
+                print(Fore.MAGENTA + f"UE {self.id} connecting to BS {target_bs.id}")
             self.handover(target_bs=target_bs)
 
     def move_deg(self, lat_offset: float, long_offset: float):
