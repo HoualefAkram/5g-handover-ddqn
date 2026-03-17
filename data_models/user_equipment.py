@@ -117,6 +117,7 @@ class UserEquipment:
         time_to_trigger: float = 3.0,
     ) -> Optional[BaseTower]:
         """Checks if a handover is needed based on 3GPP RSRP criteria."""
+        # TODO: Check (page 260) https://www.etsi.org/deliver/etsi_ts/138300_138399/138331/18.04.00_60/ts_138331v180400p.pdf
         # If serving bs is null, connect to the best available option
         last_report: NGRANReport = self.generated_reports[-1]
         if self.serving_bs is None:
