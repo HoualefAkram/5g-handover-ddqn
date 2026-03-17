@@ -29,6 +29,7 @@ class UserEquipment:
         self.all_bs = all_bs
         self.print_report_on_movement = print_report_on_movement
         self.generated_reports: list[NGRANReport] = []
+        self.total_handovers: int = 0
 
     def __repr__(self):
         return f"UserEquipment(id: {self.id}, latlng: {self.latlng}, serving_bs: {self.serving_bs.id if self.serving_bs else None})"
@@ -62,6 +63,7 @@ class UserEquipment:
                     Fore.RED
                     + f"{self.id} handover from BS {self.serving_bs.id} to BS {target_bs.id}"
                 )
+                self.total_handovers += 1
             else:
                 print(Fore.MAGENTA + f"UE {self.id} connecting to BS {target_bs.id}")
             self.handover(target_bs=target_bs)

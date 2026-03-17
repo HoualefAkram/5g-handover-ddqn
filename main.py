@@ -83,6 +83,11 @@ def run_simulation(
             Fore.BLUE
             + f"Base Station {bs.id} served UEs: {[ue.id for ue in bs.connected_ues]}"
         )
+    print(
+        Fore.RED
+        + Style.BRIGHT
+        + f"Total Handovers: {sum([ue.total_handovers for ue in cars.values()])}"
+    )
     if show_folium_output:
         webbrowser.open(Path(folium_output).resolve())
 
