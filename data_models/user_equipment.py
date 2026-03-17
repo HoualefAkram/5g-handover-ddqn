@@ -113,7 +113,7 @@ class UserEquipment:
 
     def check_handover_3gpp_rsrp(
         self,
-        handover_threshold: float = 3.0,
+        hysteresis: float = 3.0,
         time_to_trigger: float = 3.0,
     ) -> Optional[BaseTower]:
         """Checks if a handover is needed based on 3GPP RSRP criteria."""
@@ -135,7 +135,7 @@ class UserEquipment:
         if best_bs_id is None:
             return None
         # Consider checking report history for TTT only if the HOM is satisfied
-        if last_report.rsrp_values[best_bs_id] > serving_rsrp + handover_threshold:
+        if last_report.rsrp_values[best_bs_id] > serving_rsrp + hysteresis:
             # check older reports if TTT is satisfied
             if len(self.generated_reports) > 1:
                 # check how many reports are needed to satisfy the TTT
@@ -153,7 +153,7 @@ class UserEquipment:
                     for report in report_history:
                         serving = report.rsrp_values[self.serving_bs.id]
                         candidate = report.rsrp_values[best_bs_id]
-                        if candidate <= serving + handover_threshold:
+                        if candidate <= serving + hysteresis:
                             is_satisfied = False
                             break
                     if is_satisfied:
