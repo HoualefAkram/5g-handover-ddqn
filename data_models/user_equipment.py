@@ -27,6 +27,7 @@ class UserEquipment:
         self.path_history: list[LatLng] = [] if latlng is None else [latlng]
         self.all_bs = all_bs
         self.print_report_on_movement = print_report_on_movement
+        self.generated_reports: list[NGRANReport] = []
 
     def __repr__(self):
         return f"UserEquipment(id: {self.id}, latlng: {self.latlng}, serving_bs: {self.serving_bs.id if self.serving_bs else None})"
@@ -40,9 +41,13 @@ class UserEquipment:
     def __append_path_history(self) -> None:
         self.path_history.append(self.latlng)
 
+    def __append_generated_reports(self, report: NGRANReport):
+        self.generated_reports.append(report)
+
     def __on_movement(self):
         self.__append_path_history()
         report = self.generate_report(all_bs=self.all_bs)
+        self.__append_generated_reports(report)
         # Logs
         if self.print_report_on_movement:
             print(report)
