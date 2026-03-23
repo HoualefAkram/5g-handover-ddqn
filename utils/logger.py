@@ -1,5 +1,6 @@
 from enum import Enum
 from torch.utils.tensorboard import SummaryWriter
+from pathlib import Path
 
 
 class Logger:
@@ -13,6 +14,7 @@ class Logger:
         EPSILON = "Epsilon"
 
     def __init__(self, logdir: str = "outputs/runs"):
+        Path(logdir).mkdir(parents=True, exist_ok=True)
         self.writer = SummaryWriter(logdir)
 
     def log_ue_metric(self, ue_index: int, metric: Metric, value: float, step: int):

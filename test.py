@@ -95,17 +95,11 @@ logger.close()
 print(Fore.CYAN + Style.BRIGHT + "--- Launching TensorBoard ---")
 tb_port = 6006
 tb_process = subprocess.Popen(
-    [
-        "tensorboard",
-        "--logdir",
-        LOGDIR,
-        "--port",
-        str(tb_port),
-    ],
+    ["tensorboard", "--logdir", LOGDIR, "--port", str(tb_port)],
     stdout=subprocess.DEVNULL,
     stderr=subprocess.DEVNULL,
 )
-time.sleep(2)
+time.sleep(3)
 webbrowser.open(f"http://localhost:{tb_port}")
 
 print(Fore.GREEN + Style.BRIGHT + "--- Test Done! ---")
