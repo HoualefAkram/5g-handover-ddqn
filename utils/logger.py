@@ -1,4 +1,5 @@
 from enum import Enum
+from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 from pathlib import Path
 
@@ -14,8 +15,10 @@ class Logger:
         EPSILON = "Epsilon"
 
     def __init__(self, logdir: str = "outputs/runs"):
-        Path(logdir).mkdir(parents=True, exist_ok=True)
-        self.writer = SummaryWriter(logdir)
+        run_name = datetime.now().strftime("%Y%m%d_%H%M%S")
+        run_dir = Path(logdir) / run_name
+        run_dir.mkdir(parents=True, exist_ok=True)
+        self.writer = SummaryWriter(str(run_dir))
 
     def log_ue_metric(self, ue_index: int, metric: Metric, value: float, step: int):
         tag = f"UE_{ue_index}/{metric.value}"
