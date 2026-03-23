@@ -16,8 +16,8 @@ from utils.logger import Logger
 # --- Params ---
 
 SHOW_FOLIUM_OUTPUT = True
+SHOW_TENSORBOARD_OUTPUT = True
 FOLIUM_OUTPUT = "outputs/folium/simulation.html"
-NUM_UE = FcdParser.count_vehicles()
 LOGDIR = "outputs/runs"
 
 # --- Execution ---
@@ -42,6 +42,7 @@ if not bs_list:
 fcd_data: list[dict[int, CarFcdData]] = FcdParser.parse_fcd_trace()
 
 # Initialize User Equipment (Cars)
+num_ue = FcdParser.count_vehicles()
 cars: dict[int, UserEquipment] = {
     i: UserEquipment(
         id=i,
@@ -49,13 +50,13 @@ cars: dict[int, UserEquipment] = {
         print_report_on_movement=False,
         handover_algorithm=HandoverAlgorithm.A3_RSRP_3GPP,
     )
-    for i in range(NUM_UE)
+    for i in range(num_ue)
 }
 
 print(
     Fore.CYAN
     + Style.BRIGHT
-    + f"--- Simulating Movement and Network Logic for {NUM_UE} Vehicles ---"
+    + f"--- Simulating Movement and Network Logic for {num_ue} Vehicles ---"
 )
 for fcd in fcd_data:
     for car_id, car_data in fcd.items():
@@ -96,18 +97,19 @@ if SHOW_FOLIUM_OUTPUT:
 
 # Launch TensorBoard
 logger.close()
-print(Fore.CYAN + Style.BRIGHT + "--- Launching TensorBoard ---")
-tb_port = 6006
-tb_process = subprocess.Popen(
-    ["tensorboard", "--logdir", LOGDIR, "--port", str(tb_port)],
-    stdout=subprocess.DEVNULL,
-    stderr=subprocess.DEVNULL,
-)
-time.sleep(3)
-webbrowser.open(f"http://localhost:{tb_port}")
+if SHOW_TENSORBOARD_OUTPUT:
+    print(Fore.CYAN + Style.BRIGHT + "--- Launching TensorBoard ---")
+    tb_port = 6006
+    tb_process = subprocess.Popen(
+        ["tensorboard", "--logdir", LOGDIR, "--port", str(tb_port)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    time.sleep(3)
+    webbrowser.open(f"http://localhost:{tb_port}")
 
-print(Fore.GREEN + Style.BRIGHT + "--- Test Done! ---")
-print(
-    Fore.YELLOW
-    + f"TensorBoard running at http://localhost:{tb_port} (PID: {tb_process.pid})"
-)
+    print(Fore.GREEN + Style.BRIGHT + "--- Test Done! ---")
+    print(
+        Fore.YELLOW
+        + f"TensorBoard running at http://localhost:{tb_port} (PID: {tb_process.pid})"
+    )
