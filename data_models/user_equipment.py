@@ -135,7 +135,12 @@ class UserEquipment:
         self.handover_algorithm = algorithm
 
     def check_handover_ddqn(self):
-        # TODO: DDQN + CHO
+        # 1- Top-4 Filtering
+        # 2- DDQN
+        # 3- Softmax
+        # 4- Top 2
+        # 5- Weighted Sum
+        # 6- Decision
         ...
 
     def check_handover_3gpp_rsrp(
