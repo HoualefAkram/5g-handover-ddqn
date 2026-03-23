@@ -21,7 +21,7 @@ def run_simulation(
     mcc: int,
     num_ue: int,
     seed: int = 42,
-    osm_download_path: str = "maps/map.osm",
+    osm_download_path: str = "cache/maps/map.osm",
     show_folium_output: bool = True,
     folium_output: str = "outputs/folium/simulation.html",
 ) -> None:
@@ -114,8 +114,8 @@ def run_simulation(
 
 if __name__ == "__main__":
     # --- Configuration Parameters ---
-    MAP_TOP_LEFT = LatLng(51.511308, -0.157363)
-    MAP_BOTTOM_RIGHT = LatLng(51.496028, -0.125348)
+    MAP_TOP_LEFT = LatLng(51.465655, -1.018621)
+    MAP_BOTTOM_RIGHT = LatLng(51.416325, -0.898452)
     MCC = 234
     NUMBER_OF_UE = 1
     SEED = 200

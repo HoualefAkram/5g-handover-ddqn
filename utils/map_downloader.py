@@ -15,7 +15,7 @@ class MapDownloader:
     def download_osm_by_bbox(
         top_left: LatLng,
         bottom_right: LatLng,
-        output_file: str = "maps/map.osm",
+        output_file: str = "cache/maps/map.osm",
     ) -> None:
         # left, bottom, right, top (min_lon, min_lat, max_lon, max_lat)
         min_lon = top_left.long

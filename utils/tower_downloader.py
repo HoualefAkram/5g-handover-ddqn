@@ -13,8 +13,8 @@ from colorama import Fore, Style, init
 init(autoreset=True)
 
 SUPPORTED_TOWERS = {"LTE", "NR"}
-_CACHE_DIR = Path("cache")
-_TOWERS_CACHE = _CACHE_DIR / "towers.json"
+_TOWERS_CACHE_DIR = Path("cache/towers")
+_TOWERS_JSON_CACHE = _TOWERS_CACHE_DIR / "towers.json"
 
 
 class TowerDownloader:
@@ -29,8 +29,8 @@ class TowerDownloader:
         max_lat = top_left.lat
         max_lon = bottom_right.long
 
-        if _TOWERS_CACHE.exists():
-            with open(_TOWERS_CACHE, "r") as f:
+        if _TOWERS_JSON_CACHE.exists():
+            with open(_TOWERS_JSON_CACHE, "r") as f:
                 cached = json.load(f)
             if (
                 LocationUtils.coords_are_identical(min_lat, cached["min_lat"])
@@ -46,8 +46,8 @@ class TowerDownloader:
             csv_path, min_lat, min_lon, max_lat, max_lon
         )
 
-        _CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        with open(_TOWERS_CACHE, "w") as f:
+        _TOWERS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        with open(_TOWERS_JSON_CACHE, "w") as f:
             json.dump(
                 {
                     "min_lat": min_lat,
@@ -63,7 +63,7 @@ class TowerDownloader:
 
     @staticmethod
     def __ensure_csv(mcc: int = 234) -> Path:
-        csv_path = _CACHE_DIR / f"cell_towers_{mcc}.csv.gz"
+        csv_path = _TOWERS_CACHE_DIR / f"cell_towers_{mcc}.csv.gz"
 
         if csv_path.exists():
             print(
@@ -89,7 +89,7 @@ class TowerDownloader:
             body = response.text
             raise Exception(f"OpenCellID download failed: {body}")
 
-        _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        _TOWERS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
         total = int(response.headers.get("content-length", 0))
         downloaded = 0

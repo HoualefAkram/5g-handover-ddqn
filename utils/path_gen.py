@@ -12,7 +12,7 @@ class PathGeneration:
 
     def __init__(
         self,
-        osm_file: str = "maps/map.osm",
+        osm_file: str = "cache/maps/map.osm",
         network_output: str = "outputs/sumo/map.net.xml",
         trips_output: str = "outputs/sumo/trips.xml",
         route_output: str = "outputs/sumo/routes.xml",
@@ -131,5 +131,5 @@ class PathGeneration:
         )
 
     @staticmethod
-    def quick_run(osm_file: str = "maps/map.osm", gui: bool = False):
+    def quick_run(osm_file: str = "cache/maps/map.osm", gui: bool = False):
         PathGeneration(osm_file=osm_file, gui=gui, seed=randint(0, 10000)).run()
