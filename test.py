@@ -2,9 +2,6 @@ from data_models.car_fcd_data import CarFcdData
 from data_models.handover_algorithm import HandoverAlgorithm
 from data_models.user_equipment import UserEquipment
 from data_models.base_tower import BaseTower
-from data_models.latlng import LatLng
-from utils.path_gen import PathGeneration
-from utils.map_downloader import MapDownloader
 from utils.tower_downloader import TowerDownloader
 from utils.render import Render
 from utils.fcd_parser import FcdParser
