@@ -32,3 +32,20 @@ class FcdParser:
             timesteps.append(snapshot)
 
         return timesteps
+
+    @staticmethod
+    def count_vehicles(
+        trace_file: str = "outputs/sumo/trace.xml",
+    ) -> int:
+        if not Path(trace_file).exists():
+            raise FileNotFoundError(f"Trace file not found: {trace_file}")
+
+        tree = ET.parse(trace_file)
+        root = tree.getroot()
+
+        vehicle_ids = set()
+        for timestep in root.findall("timestep"):
+            for vehicle in timestep.findall("vehicle"):
+                vehicle_ids.add(int(vehicle.get("id")))
+
+        return len(vehicle_ids)

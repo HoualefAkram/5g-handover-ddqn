@@ -17,7 +17,7 @@ from utils.logger import Logger
 
 SHOW_FOLIUM_OUTPUT = True
 FOLIUM_OUTPUT = "outputs/folium/simulation.html"
-NUM_UE = 1
+NUM_UE = FcdParser.count_vehicles()
 LOGDIR = "outputs/runs"
 
 # --- Execution ---
@@ -52,7 +52,11 @@ cars: dict[int, UserEquipment] = {
     for i in range(NUM_UE)
 }
 
-print(Fore.CYAN + Style.BRIGHT + "--- Simulating Movement and Network Logic ---")
+print(
+    Fore.CYAN
+    + Style.BRIGHT
+    + f"--- Simulating Movement and Network Logic for {NUM_UE} Vehicles ---"
+)
 for fcd in fcd_data:
     for car_id, car_data in fcd.items():
         if car_id in cars:  # Safe check in case SUMO spawned extra vehicles
