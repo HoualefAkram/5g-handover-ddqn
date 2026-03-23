@@ -1,4 +1,5 @@
 from typing import Optional
+from data_models.handover_algorithm import HandoverAlgorithm
 from data_models.latlng import LatLng
 from utils.location_utils import LocationUtils
 from data_models.base_tower import BaseTower
@@ -20,6 +21,7 @@ class UserEquipment:
         g_rx: float = 0.0,
         serving_bs: Optional[BaseTower] = None,
         print_report_on_movement: bool = False,
+        handover_algorithm: HandoverAlgorithm = HandoverAlgorithm.A3_RSRP_3GPP,
     ):
         self.id: int = id
         self.g_rx: float = g_rx  # 0 to +2 dBi
@@ -30,6 +32,7 @@ class UserEquipment:
         self.print_report_on_movement = print_report_on_movement
         self.generated_reports: list[NGRANReport] = []
         self.total_handovers: int = 0
+        self.handover_algorithm = handover_algorithm
 
     def __repr__(self):
         return f"UserEquipment(id: {self.id}, latlng: {self.latlng}, serving_bs: {self.serving_bs.id if self.serving_bs else None})"
@@ -55,7 +58,12 @@ class UserEquipment:
             print(report)
 
         # Check for handover
-        target_bs = self.check_handover_3gpp_rsrp()
+        match self.handover_algorithm:
+            case HandoverAlgorithm.A3_RSRP_3GPP:
+                target_bs = self.check_handover_3gpp_rsrp()
+            case HandoverAlgorithm.DDQN_CHO:
+                target_bs = self.check_handover_ddqn()
+
         if target_bs:
             # Log handover decision, (or if the user connected for the first time)
             if self.serving_bs:
@@ -114,6 +122,13 @@ class UserEquipment:
             rsrq_values=rsrq_values,
             timestep=timestep,
         )
+
+    def set_handover_algorithm(self, algorithm: HandoverAlgorithm):
+        self.handover_algorithm = algorithm
+
+    def check_handover_ddqn(self):
+        # TODO: DDQN + CHO
+        ...
 
     def check_handover_3gpp_rsrp(
         self,

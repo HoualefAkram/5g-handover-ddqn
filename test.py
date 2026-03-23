@@ -1,4 +1,5 @@
 from data_models.car_fcd_data import CarFcdData
+from data_models.handover_algorithm import HandoverAlgorithm
 from data_models.user_equipment import UserEquipment
 from data_models.base_tower import BaseTower
 from data_models.latlng import LatLng
@@ -46,6 +47,7 @@ cars: dict[int, UserEquipment] = {
         id=i,
         all_bs=bs_list,
         print_report_on_movement=False,
+        handover_algorithm=HandoverAlgorithm.A3_RSRP_3GPP,
     )
     for i in range(NUM_UE)
 }
