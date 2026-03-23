@@ -21,7 +21,13 @@ class TowerDownloader:
     __DOWNLOAD_URL = "https://opencellid.org/ocid/downloads"
 
     @staticmethod
-    def get_towers_in_bbox(
+    def get_towers_from_cache() -> list[BaseTower]:
+        with open(_TOWERS_JSON_CACHE, "r") as f:
+            cached = json.load(f)
+            return TowerDownloader.__parse_cells(cached["cells"])
+
+    @staticmethod
+    def download_towers_in_bbox(
         top_left: LatLng, bottom_right: LatLng, mcc: int
     ) -> list[BaseTower]:
         min_lat = bottom_right.lat

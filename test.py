@@ -1,0 +1,92 @@
+from data_models.car_fcd_data import CarFcdData
+from data_models.user_equipment import UserEquipment
+from data_models.base_tower import BaseTower
+from data_models.latlng import LatLng
+from utils.path_gen import PathGeneration
+from utils.map_downloader import MapDownloader
+from utils.tower_downloader import TowerDownloader
+from utils.render import Render
+from utils.fcd_parser import FcdParser
+from colorama import Fore, Style, init
+import webbrowser
+from pathlib import Path
+from utils.logger import Logger
+
+
+# --- Params ---
+
+SHOW_FOLIUM_OUTPUT = True
+FOLIUM_OUTPUT = "outputs/folium/simulation.html"
+NUM_UE = 1
+
+# --- Execution ---
+
+
+init(autoreset=True)
+
+logger = Logger()
+print(Fore.CYAN + Style.BRIGHT + f"--- Starting Test ---")
+
+# Base Stations
+bs_list: list[BaseTower] = TowerDownloader.get_towers_from_cache()
+
+if not bs_list:
+    error_text = (
+        Fore.RED + Style.BRIGHT + "Error: No base stations found in this area. Exiting."
+    )
+    print(error_text)
+    raise Exception(error_text)
+
+# Parse Trace and Move Cars
+fcd_data: list[dict[int, CarFcdData]] = FcdParser.parse_fcd_trace()
+
+# Initialize User Equipment (Cars)
+cars: dict[int, UserEquipment] = {
+    i: UserEquipment(
+        id=i,
+        all_bs=bs_list,
+        print_report_on_movement=False,
+    )
+    for i in range(NUM_UE)
+}
+
+print(Fore.CYAN + Style.BRIGHT + "--- Simulating Movement and Network Logic ---")
+for fcd in fcd_data:
+    for car_id, car_data in fcd.items():
+        if car_id in cars:  # Safe check in case SUMO spawned extra vehicles
+            car = cars[car_id]
+            report = car.move_to(car_data.latlng, timestep=car_data.timestep)
+            rsrp = report.rsrp_values[car.serving_bs.id]
+            rsrq = report.rsrq_values[car.serving_bs.id]
+            logger.log_ue_metric(
+                ue_index=car.id,
+                metric=Logger.Metric.RSRP,
+                step=car_data.timestep,
+                value=rsrp,
+            )
+            logger.log_ue_metric(
+                ue_index=car.id,
+                metric=Logger.Metric.RSRQ,
+                step=car_data.timestep,
+                value=rsrq,
+            )
+
+# 6. Render Final Map
+print(Fore.CYAN + Style.BRIGHT + "--- Rendering Final Output ---")
+Render.render_map(bs_list=bs_list, ue_list=list(cars.values()))
+
+for bs in bs_list:
+    print(
+        Fore.BLUE
+        + f"Base Station {bs.id} served UEs: {[ue.id for ue in bs.connected_ues]}"
+    )
+print(
+    Fore.RED
+    + Style.BRIGHT
+    + f"Total Handovers: {sum([ue.total_handovers for ue in cars.values()])}"
+)
+if SHOW_FOLIUM_OUTPUT:
+    webbrowser.open(Path(FOLIUM_OUTPUT).resolve())
+
+
+print(Fore.GREEN + Style.BRIGHT + "--- Test Done! ---")
