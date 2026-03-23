@@ -12,7 +12,7 @@ class Logger:
         RSRQ = "RSRQ"
         EPSILON = "Epsilon"
 
-    def __init__(self, logdir: str = "runs"):
+    def __init__(self, logdir: str = "outputs/runs"):
         self.writer = SummaryWriter(logdir)
 
     def log_ue_metric(self, ue_index: int, metric: Metric, value: float, step: int):

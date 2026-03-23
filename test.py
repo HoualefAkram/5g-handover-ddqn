@@ -18,13 +18,14 @@ from utils.logger import Logger
 SHOW_FOLIUM_OUTPUT = True
 FOLIUM_OUTPUT = "outputs/folium/simulation.html"
 NUM_UE = 1
+LOGDIR = "outputs/runs"
 
 # --- Execution ---
 
 
 init(autoreset=True)
 
-logger = Logger()
+logger = Logger(logdir=LOGDIR)
 print(Fore.CYAN + Style.BRIGHT + f"--- Starting Test ---")
 
 # Base Stations
@@ -94,7 +95,13 @@ logger.close()
 print(Fore.CYAN + Style.BRIGHT + "--- Launching TensorBoard ---")
 tb_port = 6006
 tb_process = subprocess.Popen(
-    ["tensorboard", "--logdir", "runs", "--port", str(tb_port)],
+    [
+        "tensorboard",
+        "--logdir",
+        LOGDIR,
+        "--port",
+        str(tb_port),
+    ],
     stdout=subprocess.DEVNULL,
     stderr=subprocess.DEVNULL,
 )
@@ -102,4 +109,7 @@ time.sleep(2)
 webbrowser.open(f"http://localhost:{tb_port}")
 
 print(Fore.GREEN + Style.BRIGHT + "--- Test Done! ---")
-print(Fore.YELLOW + f"TensorBoard running at http://localhost:{tb_port} (PID: {tb_process.pid})")
+print(
+    Fore.YELLOW
+    + f"TensorBoard running at http://localhost:{tb_port} (PID: {tb_process.pid})"
+)
