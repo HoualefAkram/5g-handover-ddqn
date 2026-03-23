@@ -97,6 +97,7 @@ if SHOW_FOLIUM_OUTPUT:
 
 # Launch TensorBoard
 logger.close()
+time.sleep(1)
 if SHOW_TENSORBOARD_OUTPUT:
     print(Fore.CYAN + Style.BRIGHT + "--- Launching TensorBoard ---")
     tb_port = 6006
