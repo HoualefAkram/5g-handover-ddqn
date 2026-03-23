@@ -101,20 +101,28 @@ class UserEquipment:
         rsrp_values = {}
         rsrq_values = {}
 
-        # calculate rsrp
+        # RSRP
+        raw_rsrp_dbm = {}
         for bs in all_bs:
-            rsrp_values[bs.id] = WaveUtils.calculate_rsrp(ue=self, bs=bs)
+            raw_rsrp_dbm[bs.id] = WaveUtils.calculate_rsrp(ue=self, bs=bs)
 
-        # calculate rsrq
-        all_rsrp_dBm = list(rsrp_values.values())
+        all_rsrp_list = list(raw_rsrp_dbm.values())
 
+        # RSRQ
         for bs in all_bs:
-            rsrq = WaveUtils.calculate_rsrq(
+            raw_rsrq_db = WaveUtils.calculate_rsrq(
                 serving_tower=bs,
-                serving_rsrp=rsrp_values[bs.id],
-                all_rsrp_dBm=all_rsrp_dBm,
+                serving_rsrp=raw_rsrp_dbm[bs.id],
+                all_rsrp_dBm=all_rsrp_list,
             )
-            rsrq_values[bs.id] = rsrq
+
+            radio_type = bs.radio
+
+            # Map using the helper functions
+            rsrp_values[bs.id] = WaveUtils.rsrp_to_index(
+                raw_rsrp_dbm[bs.id], radio_type
+            )
+            rsrq_values[bs.id] = WaveUtils.rsrq_to_index(raw_rsrq_db, radio_type)
 
         return NGRANReport(
             ue_id=self.id,

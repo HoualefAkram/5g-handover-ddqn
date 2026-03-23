@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from data_models.base_tower import BaseTower
 from utils.location_utils import LocationUtils
 import numpy as np
+import math
 
 if TYPE_CHECKING:
     from data_models.user_equipment import UserEquipment
@@ -87,4 +88,27 @@ class WaveUtils:
             all_rsrp_dBm=all_rsrp_dBm,
             bandwidth_hz=serving_tower.bandwidth,
         )
+
         return serving_rsrp - rssi
+
+    @staticmethod
+    def rsrp_to_index(rsrp_dbm: float, radio_type) -> int:
+        """Converts raw RSRP (dBm) to 3GPP index based on radio technology."""
+        radio_type = radio_type.upper()
+        if radio_type == "LTE":
+            # LTE RSRP Mapping (TS 36.133): Range 0 to 97
+            return max(0, min(97, math.floor(rsrp_dbm + 141)))
+        elif radio_type == "NR":
+            # NR RSRP Mapping (TS 38.133): Range 0 to 127
+            return max(0, min(127, math.floor(rsrp_dbm + 157)))
+
+    @staticmethod
+    def rsrq_to_index(rsrq_db: float, radio_type: str = "NR") -> int:
+        """Converts raw RSRQ (dB) to 3GPP index based on radio technology."""
+        radio_type = radio_type.upper()
+        if radio_type == "LTE":
+            # LTE RSRQ Mapping (TS 36.133): Range 0 to 34
+            return max(0, min(34, math.floor((rsrq_db + 20.0) / 0.5)))
+        elif radio_type == "NR":
+            # NR RSRQ Mapping (TS 38.133): Range 0 to 127
+            return max(0, min(127, math.floor((rsrq_db + 43.5) / 0.5)))
