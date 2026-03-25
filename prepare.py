@@ -7,18 +7,22 @@ from utils.path_gen import PathGeneration
 from utils.tower_downloader import TowerDownloader
 
 # --- Params ---
-MAP_TOP_LEFT = LatLng(51.522004, -0.157535)
-MAP_BOTTOM_RIGHT = LatLng(51.512737, -0.134189)
-MCC = 234
-OSM_DOWNLOAD_PATH = "cache/maps/map.osm"
-MCC = 234
-NUMBER_OF_UE = 10
+MAP_TOP_LEFT = LatLng(51.522004, -0.157535)  # London
+MAP_BOTTOM_RIGHT = LatLng(51.512737, -0.134189)  # London
+MCC = 234  # UK
+OSM_DOWNLOAD_PATH = "cache/maps/map.osm"  # cache folder
+SIMULATION_TIME = 900  # (15 minutes)
+STEP_LENGTH = 0.1  # 10 ms
 SEED = 200
 
 
 # --- Execution ---
 
-print(Fore.CYAN + Style.BRIGHT + f"--- Preparing Simulation for {NUMBER_OF_UE} UEs ---")
+print(
+    Fore.CYAN
+    + Style.BRIGHT
+    + f"--- Preparing Simulation for {SIMULATION_TIME} seconds ---"
+)
 
 MapDownloader.download_osm_by_bbox(
     top_left=MAP_TOP_LEFT,
@@ -34,7 +38,11 @@ bs_list: list[BaseTower] = TowerDownloader.download_towers_in_bbox(
 )
 
 
-path_gen = PathGeneration(stop_trip_generation_after=NUMBER_OF_UE, seed=SEED)
+path_gen = PathGeneration(
+    end_simulation=SIMULATION_TIME,
+    step_length=STEP_LENGTH,
+    seed=SEED,
+)
 path_gen.run()
 
 

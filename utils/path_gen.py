@@ -18,9 +18,9 @@ class PathGeneration:
         route_output: str = "outputs/sumo/routes.xml",
         trace_output: str = "outputs/sumo/trace.xml",
         begin_simulation: float = 0,
-        end_simulation: float = 3600,
-        stop_trip_generation_after: float = 100,
-        step_length: float = 1.0,
+        end_simulation: float = 900,
+        spawn_interval: float = 3,
+        step_length: float = 0.1,
         seed: int = 42,
         gui: bool = False,
     ) -> None:
@@ -31,8 +31,8 @@ class PathGeneration:
         self.trips = trips_output
         self.begin = begin_simulation
         self.end = end_simulation
-        self.stop_trip_generation_after = stop_trip_generation_after
         self.step_length = step_length
+        self.spawn_interval = spawn_interval
         self.seed = seed
         self.gui = gui
 
@@ -68,10 +68,10 @@ class PathGeneration:
             random_trips_exec,
             "-n",
             self.network,
-            "-e",
-            str(self.stop_trip_generation_after),
             "-o",
             self.trips,
+            "-p",
+            str(self.spawn_interval),
             "--seed",
             str(self.seed),
             "--no-validate",
