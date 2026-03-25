@@ -31,7 +31,8 @@ class UserEquipment:
         self.all_bs = all_bs
         self.print_report_on_movement = print_report_on_movement
         self.generated_reports: list[NGRANReport] = []
-        self.total_handovers: int = 0
+        # (bs_id, timestep) after each connection
+        self.connection_history: list[tuple[int, float]] = []
         self.handover_algorithm = handover_algorithm
 
     def __repr__(self):
@@ -48,6 +49,24 @@ class UserEquipment:
 
     def __append_generated_reports(self, report: NGRANReport):
         self.generated_reports.append(report)
+
+    def get_total_handovers(self) -> int:
+        """Returns the total number of handovers (excludes the initial connection)."""
+        return max(0, len(self.connection_history) - 1)
+
+    def get_total_pingpong(self, min_time_of_stay: float = 1.0) -> int:
+        """Counts ping-pong handovers: A→B→A where time spent on B < min_time_of_stay (seconds)."""
+        count = 0
+        history = self.connection_history
+        for i in range(len(history) - 2):
+            bs_a, _ = history[i]
+            bs_b, t_arrived_b = history[i + 1]
+            bs_return, t_left_b = history[i + 2]
+            if bs_a == bs_return and bs_a != bs_b:
+                time_on_b = t_left_b - t_arrived_b
+                if time_on_b < min_time_of_stay:
+                    count += 1
+        return count
 
     def __on_movement(self, timestep) -> NGRANReport:
         self.__append_path_history()
@@ -71,13 +90,14 @@ class UserEquipment:
                     Fore.RED
                     + f"{self.id} handover from BS {self.serving_bs.id} to BS {target_bs.id} at {timestep}"
                 )
-                self.total_handovers += 1
+                self.handover(target_bs=target_bs, timestep=timestep)
             else:
                 print(
                     Fore.MAGENTA
                     + f"UE {self.id} connecting to BS {target_bs.id} at {timestep}"
                 )
-            self.handover(target_bs=target_bs)
+                self.connect_to_tower(bs=target_bs, timestep=timestep)
+
         return report
 
     def move_deg(self, lat_offset: float, long_offset: float, timestep: float):
@@ -194,9 +214,20 @@ class UserEquipment:
                         )
         return None
 
-    def handover(self, target_bs: BaseTower):
+    def connect_to_tower(self, bs: BaseTower, timestep: float):
+        """Called only if the user doesnt have a bse tower"""
+        if self.serving_bs:
+            return
+        self.serving_bs = bs
+        bs.add_ue(self)
+        self.connection_history.append((bs.id, timestep))
+
+    def handover(self, target_bs: BaseTower, timestep: float):
         """Performs handover to the target base station."""
+        if self.serving_bs == target_bs:
+            return
         if self.serving_bs:
             self.serving_bs.remove_ue(self.id)
         target_bs.add_ue(self)
         self.serving_bs = target_bs
+        self.connection_history.append((target_bs.id, timestep))

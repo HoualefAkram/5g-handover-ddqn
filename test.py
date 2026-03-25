@@ -90,7 +90,7 @@ for bs in bs_list:
 print(
     Fore.RED
     + Style.BRIGHT
-    + f"Total Handovers: {sum([ue.total_handovers for ue in cars.values()])}"
+    + f"Total Handovers: {sum([ue.get_total_handovers() for ue in cars.values()])}"
 )
 if SHOW_FOLIUM_OUTPUT:
     webbrowser.open(Path(FOLIUM_OUTPUT).resolve())
