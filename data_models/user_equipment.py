@@ -68,6 +68,21 @@ class UserEquipment:
                     count += 1
         return count
 
+    def get_pingpong_rate(self, min_time_of_stay: float = 1.0) -> float:
+        """
+        Calculates the Ping-Pong Handover Rate.
+        Returns the ratio of ping-pong handovers to total handovers as a float (0.0 to 1.0).
+        """
+        total_handovers = self.get_total_handovers()
+
+        # Prevent division by zero if the UE hasn't performed any handovers
+        if total_handovers == 0:
+            return 0.0
+
+        total_pingpong = self.get_total_pingpong(min_time_of_stay=min_time_of_stay)
+
+        return total_pingpong / total_handovers
+
     def __on_movement(self, timestep) -> NGRANReport:
         self.__append_path_history()
         report = self.generate_report(all_bs=self.all_bs, timestep=timestep)
