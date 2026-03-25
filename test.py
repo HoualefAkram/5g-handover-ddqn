@@ -60,13 +60,19 @@ print(
     + f"--- Simulating Movement and Network Logic for {num_ue} Vehicles ---"
 )
 total_steps = len(fcd_data)
+start_time = time.time()
+
 for i in range(total_steps):
     fcd = fcd_data[i]
 
     # print
     percent = (i / total_steps) * 100 if total_steps > 0 else 100
+
+    elapsed_seconds = int(time.time() - start_time)
+    mins, secs = divmod(elapsed_seconds, 60)
+    timer_str = f"{mins:02d}:{secs:02d}"
     print(
-        f"\r{Fore.CYAN}{Style.BRIGHT}{percent:.0f}% ,{i+1}/{total_steps} timesteps",
+        f"\r{Fore.CYAN}{Style.BRIGHT}{percent:.0f}% ,{i}/{total_steps} timesteps [Elapsed: {timer_str}]",
         flush=True,
         end="",
     )
