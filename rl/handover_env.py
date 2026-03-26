@@ -97,12 +97,11 @@ class HandoverEnv(gym.Env):
         rsrp_list = [report.rsrp_values.get(bs.id, 0) for bs in self.current_top_4]
         rsrq_list = [report.rsrq_values.get(bs.id, 0) for bs in self.current_top_4]
         # connected tower index (garanteed to have a serving bs since generated reports >= 1)
-        serving_position = self.base_towers.index(self.agent.serving_bs)
         serving_one_hot = [0, 0, 0, 0]
         if self.agent.serving_bs in self.current_top_4:
             serving_position = self.current_top_4.index(self.agent.serving_bs)
             serving_one_hot[serving_position] = 1
-        # observation
+        # observation, serving_one_hot will be [0,0,0,0] if ue is not connected to any tower
         obs = np.concatenate([rsrp_list, rsrq_list, serving_one_hot], dtype=np.int32)
         return obs
 
