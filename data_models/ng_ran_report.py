@@ -4,12 +4,12 @@ class NGRANReport:
         self,
         ue_id: int,
         timestep: float,
-        rsrp_values: dict,
-        rsrq_values: dict,
+        rsrp_values: dict[int, float],
+        rsrq_values: dict[int, float],
     ):
         self.ue_id: int = ue_id
-        self.rsrp_values: dict = rsrp_values
-        self.rsrq_values: dict = rsrq_values
+        self.rsrp_values: dict[int, float] = rsrp_values
+        self.rsrq_values: dict[int, float] = rsrq_values
         self.timestep = timestep
 
     def __repr__(self):

@@ -112,3 +112,11 @@ class WaveUtils:
         elif radio_type == "NR":
             # NR RSRQ Mapping (TS 38.133): Range 0 to 127
             return max(0, min(127, math.floor((rsrq_db + 43.5) / 0.5)))
+
+    @staticmethod
+    def normalize_rsrp_index(rsrp_index: int, radio_type):
+        return rsrp_index / 127 if radio_type == "NR" else rsrp_index / 97
+
+    @staticmethod
+    def normalize_rsrq_index(rsrq_index: int, radio_type):
+        return rsrq_index / 127 if radio_type == "NR" else rsrq_index / 34
