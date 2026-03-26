@@ -3,27 +3,52 @@ import gymnasium as gym
 from gymnasium.spaces import Box, Discrete
 from data_models.base_tower import BaseTower
 from data_models.car_fcd_data import CarFcdData
+from data_models.handover_algorithm import HandoverAlgorithm
 from data_models.ng_ran_report import NGRANReport
 from data_models.user_equipment import UserEquipment
 from utils.fcd_parser import FcdParser
+from utils.map_downloader import MapDownloader
+from utils.path_gen import PathGeneration
+from utils.tower_downloader import TowerDownloader
 from utils.wave_utils import WaveUtils
 
 
 class HandoverEnv(gym.Env):
 
-    def __init__(
-        self,
-        base_towers: list[BaseTower],
-        user_equipments: dict[int, UserEquipment],
-        fcd_trace_file: str = "outputs/sumo/trace.xml",
-    ):
+    def __init__(self, top_left: float, bottom_right: float, mcc: int):
         super().__init__()
+        # Prepare Env
+        MapDownloader.download_osm_by_bbox(
+            top_left=top_left,
+            bottom_right=bottom_right,
+        )
+
+        self.base_towers: list[BaseTower] = TowerDownloader.download_towers_in_bbox(
+            top_left=top_left,
+            bottom_right=bottom_right,
+            mcc=mcc,
+        )
+        # generate path with random seed
+        PathGeneration.quick_run()
+
+        self.fcd_data: list[dict[int, CarFcdData]] = FcdParser.parse_fcd_trace()
+        num_ue = FcdParser.count_vehicles()
         # UEs
-        self.user_equipments = user_equipments
+        self.user_equipments: dict[int, UserEquipment] = {
+            i: UserEquipment(
+                id=i,
+                all_bs=self.base_towers,
+                print_logs_on_movement=False,
+                handover_algorithm=(
+                    HandoverAlgorithm.DDQN_CHO
+                    if i == 0
+                    else HandoverAlgorithm.A3_RSRP_3GPP
+                ),
+            )
+            for i in range(num_ue)
+        }
         # Agent
         self.agent = self.user_equipments[0]
-        # All Base Towers
-        self.base_towers = base_towers
         # Top-4 Filtering
         self.current_top_4: list[BaseTower] = []
         # action space: choosing 1 of 4 BS
@@ -34,7 +59,6 @@ class HandoverEnv(gym.Env):
         self.observation_space = Box(low=low, high=high, dtype=np.int32)
 
         self.steps = 0
-        self.fcd_data = FcdParser.parse_fcd_trace(trace_file=fcd_trace_file)
 
     def _top_4_towers(self, report: NGRANReport):
         rsrp_weight = 0.5
@@ -74,19 +98,17 @@ class HandoverEnv(gym.Env):
         rsrq_list = [report.rsrq_values.get(bs.id, 0) for bs in self.current_top_4]
         # connected tower index (garanteed to have a serving bs since generated reports >= 1)
         serving_position = self.base_towers.index(self.agent.serving_bs)
-        serving_one_hot = [
-            1 if i == serving_position else 0 for i in range(len(self.base_towers))
-        ]
+        serving_one_hot = [0, 0, 0, 0]
+        if self.agent.serving_bs in self.current_top_4:
+            serving_position = self.current_top_4.index(self.agent.serving_bs)
+            serving_one_hot[serving_position] = 1
         # observation
         obs = np.concatenate([rsrp_list, rsrq_list, serving_one_hot], dtype=np.int32)
         return obs
 
     def step(self, action):
-        target_bs = (
-            self.current_top_4[action]
-            if self.current_top_4
-            else self._top_4_towers()[action]
-        )
+        # Reset() garantees current_top_4 is populated
+        target_bs = self.current_top_4[action]
         handover_penalty = 15
         current_fcd_dict: dict[int, CarFcdData] = self.fcd_data[self.steps]
         if self.agent.id not in current_fcd_dict:
@@ -116,7 +138,8 @@ class HandoverEnv(gym.Env):
                     car.move_to(fcd.latlng, timestep=fcd.timestep)
 
         new_tower = self.agent.serving_bs
-        # get agent report before/after moving
+
+        # --- Update Top 4 ---
         report_after = self.agent.generated_reports[-1]
         self.current_top_4 = self._top_4_towers(report_after)
 
@@ -169,4 +192,40 @@ class HandoverEnv(gym.Env):
         return obs, float(reward), terminated, truncated, info
 
     def reset(self, seed=None, options=None):
-        return super().reset(seed=seed, options=options)
+        super().reset(seed=seed, options=options)
+        self.steps = 0
+
+        # Generate new randomized traffic scenario (quick_run has a random seed built in)
+        PathGeneration.quick_run()
+        self.fcd_data = FcdParser.parse_fcd_trace()
+        num_ue = FcdParser.count_vehicles()
+
+        # Reinitialize UEs
+        self.user_equipments = {
+            i: UserEquipment(
+                id=i,
+                all_bs=self.base_towers,
+                print_logs_on_movement=False,
+                handover_algorithm=(
+                    HandoverAlgorithm.DDQN_CHO
+                    if i == 0
+                    else HandoverAlgorithm.A3_RSRP_3GPP
+                ),
+            )
+            for i in range(num_ue)
+        }
+        self.agent = self.user_equipments[0]
+
+        # Move the agent to its starting position to generate the first report TODO: make sure the report is generated
+        # one of the checks is enough, just for safety
+        if 0 in self.fcd_data and self.agent.id in self.fcd_data[0]:
+            start_data = self.fcd_data[0][self.agent.id]
+            report = self.agent.move_to(start_data.latlng, timestep=start_data.timestep)
+            self.current_top_4 = self._top_4_towers(report)
+        else:
+            # Fallback just in case Car 0 doesn't spawn until timestep 2
+            self.current_top_4 = self.base_towers[:4]
+
+        obs = self._get_obs()
+        info = {}
+        return obs, info
