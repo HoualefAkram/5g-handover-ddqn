@@ -89,7 +89,8 @@ class HandoverEnv(gym.Env):
     def step(self, action):
         # Reset() garantees current_top_4 is populated
         target_bs = self.current_top_4[action]
-        handover_penalty = 15
+        # NOTE: increase to reduce pingpong, reduce to improve RSRP/RSRQ
+        handover_penalty = 0.1
         current_fcd_dict: dict[int, CarFcdData] = self.fcd_data[self.steps]
         if self.agent.id not in current_fcd_dict:
             # The car reached its destination, Episode terminated.
