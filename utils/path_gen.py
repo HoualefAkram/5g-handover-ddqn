@@ -23,6 +23,7 @@ class PathGeneration:
         step_length: float = 0.1,
         seed: int = 42,
         gui: bool = False,
+        skip_netconvert: bool = False,
     ) -> None:
         self.osm_file = osm_file
         self.network = network_output
@@ -35,6 +36,7 @@ class PathGeneration:
         self.spawn_interval = spawn_interval
         self.seed = seed
         self.gui = gui
+        self.skip_netconvert = skip_netconvert
 
     def _validate_and_prepare(self) -> None:
         if not Path(self.osm_file).exists():
@@ -87,7 +89,10 @@ class PathGeneration:
             "--ignore-errors",
         ]
 
-        return [netconverter_cmd, randomTrips_cmd, duarouter_cmd]
+        cmds = [netconverter_cmd, randomTrips_cmd, duarouter_cmd]
+        if self.skip_netconvert:
+            cmds.pop(0)
+        return cmds
 
     def _build_generate_fcd_trace_cmd(self) -> list[str]:
         executable = "sumo-gui" if self.gui else "sumo"
@@ -131,5 +136,11 @@ class PathGeneration:
         )
 
     @staticmethod
-    def quick_run(osm_file: str = "cache/maps/map.osm", gui: bool = False):
-        PathGeneration(osm_file=osm_file, gui=gui, seed=randint(0, 10000)).run()
+    def quick_run(
+        osm_file: str = "cache/maps/map.osm",
+        gui: bool = False,
+        skip_netconvert: bool = False,
+    ):
+        PathGeneration(
+            osm_file=osm_file, gui=gui, skip_netconvert=False, seed=randint(0, 10000)
+        ).run()

@@ -18,6 +18,7 @@ class HandoverEnv(gym.Env):
     def __init__(self, top_left: float, bottom_right: float, mcc: int):
         super().__init__()
         # Prepare Env
+        PathGeneration.quick_run(skip_netconvert=False)
         MapDownloader.download_osm_by_bbox(
             top_left=top_left,
             bottom_right=bottom_right,
@@ -175,7 +176,7 @@ class HandoverEnv(gym.Env):
         self.steps = 0
 
         # Generate new randomized traffic scenario (quick_run has a random seed built in)
-        PathGeneration.quick_run()
+        PathGeneration.quick_run(skip_netconvert=True)
         self.fcd_data = FcdParser.parse_fcd_trace()
         num_ue = FcdParser.count_vehicles()
 
