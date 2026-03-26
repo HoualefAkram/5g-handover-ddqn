@@ -142,5 +142,8 @@ class PathGeneration:
         skip_netconvert: bool = False,
     ):
         PathGeneration(
-            osm_file=osm_file, gui=gui, skip_netconvert=False, seed=randint(0, 10000)
+            osm_file=osm_file,
+            gui=gui,
+            skip_netconvert=skip_netconvert,
+            seed=randint(0, 10000),
         ).run()
