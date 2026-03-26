@@ -22,33 +22,13 @@ class HandoverEnv(gym.Env):
             top_left=top_left,
             bottom_right=bottom_right,
         )
-
         self.base_towers: list[BaseTower] = TowerDownloader.download_towers_in_bbox(
             top_left=top_left,
             bottom_right=bottom_right,
             mcc=mcc,
         )
-        # generate path with random seed
-        PathGeneration.quick_run()
-
-        self.fcd_data: list[dict[int, CarFcdData]] = FcdParser.parse_fcd_trace()
-        num_ue = FcdParser.count_vehicles()
-        # UEs
-        self.user_equipments: dict[int, UserEquipment] = {
-            i: UserEquipment(
-                id=i,
-                all_bs=self.base_towers,
-                print_logs_on_movement=False,
-                handover_algorithm=(
-                    HandoverAlgorithm.DDQN_CHO
-                    if i == 0
-                    else HandoverAlgorithm.A3_RSRP_3GPP
-                ),
-            )
-            for i in range(num_ue)
-        }
-        # Agent
-        self.agent = self.user_equipments[0]
+        self.fcd_data: list[dict[int, CarFcdData]] = None  # Created on reset()
+        self.agent: UserEquipment = None  # Created on reset()
         # Top-4 Filtering
         self.current_top_4: list[BaseTower] = []
         # action space: choosing 1 of 4 BS
