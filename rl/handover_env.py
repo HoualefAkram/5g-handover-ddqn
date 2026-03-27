@@ -88,7 +88,7 @@ class HandoverEnv(gym.Env):
             )
             for bs in self.current_top_4
         ]
-        # connected tower index (garanteed to have a serving bs since generated reports >= 1)
+        # connected tower index (guaranteed to have a serving bs since generated reports >= 1)
         serving_one_hot = [0, 0, 0, 0]
         if self.agent.serving_bs in self.current_top_4:
             serving_position = self.current_top_4.index(self.agent.serving_bs)
