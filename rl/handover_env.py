@@ -172,7 +172,7 @@ class HandoverEnv(gym.Env):
             else:
                 # Did we ignore the better tower?
                 # Handover wasnt executed, this means tower_before_action = tower_after_action, Check the state if the user missed any opportunities
-                # check what was in the top-4 towers, get the best one and use it to punish staying on a worse tower, only then we can update self.current_top_4
+                # check what was in the top-4 towers, get the best one and use it to punish staying on a worse tower
                 best_rsrp = max(
                     WaveUtils.normalize_rsrp_index(
                         report_after.rsrp_values.get(bs.id, 0), bs.radio
