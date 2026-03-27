@@ -164,10 +164,23 @@ class TowerDownloader:
     def __parse_cells(cells: list[dict]) -> list[BaseTower]:
         towers: list[BaseTower] = []
         for cell in cells:
+            radio = cell["radio"]
+            raw_cell_id = cell["cellid"]
+
+            if radio == "LTE":
+                # LTE ECI (28 bits): 20-bit eNodeB ID + 8-bit Sector ID
+                tower_id = raw_cell_id >> 8
+            elif radio == "NR":
+                # 5G NCI (36 bits): Variable gNodeB ID + Sector ID.
+                # 14 bits for the Sector ID is the most widely used telecom default.
+                tower_id = raw_cell_id >> 14
+            else:
+                tower_id = raw_cell_id >> 8  # Fallback
+
             tower = BaseTower(
-                id=cell["cellid"] >> 8,
+                id=tower_id,
                 latlng=LatLng(cell["lat"], cell["lon"]),
-                radio=cell["radio"],
+                radio=radio,
                 connected_ues=[],
             )
             towers.append(tower)
