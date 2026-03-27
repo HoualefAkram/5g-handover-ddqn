@@ -97,6 +97,8 @@ class UserEquipment:
                 target_bs = self.check_handover_3gpp_rsrp()
             case HandoverAlgorithm.DDQN_CHO:
                 target_bs = self.check_handover_ddqn()
+            case HandoverAlgorithm.NONE:
+                return report
 
         if target_bs:
             # Log handover decision, (or if the user connected for the first time)
@@ -134,10 +136,13 @@ class UserEquipment:
         self.latlng = latlng
         return self.__on_movement(timestep=timestep)
 
-    def generate_report(self, all_bs: list[BaseTower], timestep: float) -> NGRANReport:
+    def generate_report(
+        self,
+        all_bs: list[BaseTower],
+        timestep: float,
+    ) -> NGRANReport:
         rsrp_values = {}
         rsrq_values = {}
-
         # RSRP
         raw_rsrp_dbm = {}
         for bs in all_bs:
@@ -172,6 +177,7 @@ class UserEquipment:
         self.handover_algorithm = algorithm
 
     def check_handover_ddqn(self):
+        # TODO: Needed for testing, after the train is done
         # 1- Top-4 Filtering
         # 2- DDQN
         # 3- Softmax

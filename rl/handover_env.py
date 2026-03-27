@@ -87,6 +87,7 @@ class HandoverEnv(gym.Env):
         return obs
 
     def step(self, action):
+        """Execute the action Handover/No Handover then move all the cars once"""
         # Reset() garantees current_top_4 is populated
         target_bs = self.current_top_4[action]
         # NOTE: increase to reduce pingpong, reduce to improve RSRP/RSRQ
@@ -98,7 +99,7 @@ class HandoverEnv(gym.Env):
             return obs, 0.0, True, False, {"info": "Agent vehicle reached destination."}
 
         timestep = current_fcd_dict[self.agent.id].timestep
-        old_tower = self.agent.serving_bs
+        tower_before_action = self.agent.serving_bs
         handover_executed = False
         # --- Execute Action ---
         if self.agent.serving_bs != target_bs:
@@ -109,36 +110,44 @@ class HandoverEnv(gym.Env):
                 self.agent.handover(target_bs, timestep=timestep)
                 handover_executed = True
 
-        # Move cars
+        # Move cars once, to get new
         if self.steps < len(self.fcd_data):
             fcds = self.fcd_data[self.steps].values()
             for fcd in fcds:
                 car = self.user_equipments.get(fcd.id)
                 if car:
-                    # NOTE: DDQN Algorithm SHOULD NOT Execute the handover
+                    # All Cars will initiate the handover after moving using A3_RSRP except the agent (HandoverAlgorithm.NONE)
                     car.move_to(fcd.latlng, timestep=fcd.timestep)
 
-        new_tower = self.agent.serving_bs
+        # Agent will have a new serving_bs ONLY if the action was to handover: [self.agent.handover(target_bs, timestep=timestep)]
+        """
+        The handover() func inside the UE explicitly says:         
+        if self.serving_bs == target_bs:
+            return
+        """
+        tower_after_action = self.agent.serving_bs
 
-        # --- Update Top 4 ---
         report_after = self.agent.generated_reports[-1]
-        self.current_top_4 = self._top_4_towers(report_after)
 
         # --- Calculate Reward ---
         if len(self.agent.generated_reports) >= 2:
             report_before = self.agent.generated_reports[-2]
 
             rsrp_before = WaveUtils.normalize_rsrp_index(
-                report_before.rsrp_values.get(old_tower.id, 0), old_tower.radio
+                report_before.rsrp_values.get(tower_before_action.id, 0),
+                tower_before_action.radio,
             )
             rsrp_after = WaveUtils.normalize_rsrp_index(
-                report_after.rsrp_values.get(new_tower.id, 0), new_tower.radio
+                report_after.rsrp_values.get(tower_after_action.id, 0),
+                tower_after_action.radio,
             )
             rsrq_before = WaveUtils.normalize_rsrq_index(
-                report_before.rsrq_values.get(old_tower.id, 0), old_tower.radio
+                report_before.rsrq_values.get(tower_before_action.id, 0),
+                tower_before_action.radio,
             )
             rsrq_after = WaveUtils.normalize_rsrq_index(
-                report_after.rsrq_values.get(new_tower.id, 0), new_tower.radio
+                report_after.rsrq_values.get(tower_after_action.id, 0),
+                tower_after_action.radio,
             )
 
             delta_rsrp = rsrp_after - rsrp_before
@@ -147,20 +156,31 @@ class HandoverEnv(gym.Env):
             if handover_executed:
                 reward = delta_rsrp + delta_rsrq - handover_penalty
             else:
-                # Opportunity cost logic: Did we ignore a better tower?
-                best_rsrp = max(
-                    WaveUtils.normalize_rsrp_index(
-                        report_after.rsrp_values.get(bs.id, 0), bs.radio
-                    )
-                    for bs in self.current_top_4
+                # Did we ignore the better tower?
+                # Handover wasnt executed, this means tower_before_action = tower_after_action, Check the state if the user missed any opportunities
+                # in this scenario we should have: rsrp_before == rsrp_after AND rsrq_before == rsrq_after
+                # check what was in the top-4 towers, get the best one and use it to punish staying on a worse tower, only then we can update self.current_top_4, serving shouldn't be included
+                top_4_ids = [bs.id for bs in self.current_top_4]
+                best_top_4_rsrp = {
+                    id: rsrp
+                    for id, rsrp in report_after.rsrp_values.items()
+                    if (id in top_4_ids and id != self.agent.serving_bs.id)
+                }
+                best_top_4_rsrq = {
+                    id: rsrq
+                    for id, rsrq in report_after.rsrq_values.items()
+                    if (id in top_4_ids and id != self.agent.serving_bs.id)
+                }
+                best_rsrp = WaveUtils.normalize_rsrp_index(
+                    rsrp=max(best_top_4_rsrp.values()),
+                    radio_type=self.agent.serving_bs.radio,
                 )
-                best_rsrq = max(
-                    WaveUtils.normalize_rsrq_index(
-                        report_after.rsrq_values.get(bs.id, 0), bs.radio
-                    )
-                    for bs in self.current_top_4
+                best_rsrq = WaveUtils.normalize_rsrq_index(
+                    rsrq=max(best_top_4_rsrq.values()),
+                    radio_type=self.agent.serving_bs.radio,
                 )
                 reward = (rsrp_after - best_rsrp) + (rsrq_after - best_rsrq)
+
         else:
             reward = 0.0
 
@@ -170,6 +190,9 @@ class HandoverEnv(gym.Env):
 
         self.steps += 1
         obs = self._get_obs()
+
+        # --- Update Top 4 ---
+        self.current_top_4 = self._top_4_towers(report_after)
         return obs, float(reward), terminated, truncated, info
 
     def reset(self, seed=None, options=None):
@@ -182,15 +205,14 @@ class HandoverEnv(gym.Env):
         num_ue = FcdParser.count_vehicles()
 
         # Reinitialize UEs
+        # User 0 shouldnt (our agent) have a handover algorithm, the env wil manage that, other UE's are free (A3 RSRP 3GPP)
         self.user_equipments = {
             i: UserEquipment(
                 id=i,
                 all_bs=self.base_towers,
                 print_logs_on_movement=False,
                 handover_algorithm=(
-                    HandoverAlgorithm.DDQN_CHO
-                    if i == 0
-                    else HandoverAlgorithm.A3_RSRP_3GPP
+                    HandoverAlgorithm.NONE if i == 0 else HandoverAlgorithm.A3_RSRP_3GPP
                 ),
             )
             for i in range(num_ue)
