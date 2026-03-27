@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 class CheckpointManager:
-    def __init__(self, file_path: str = "training/ddqn_checkpoint.pth"):
+    def __init__(self, file_path: str = "cache/training/ddqn_checkpoint.pth"):
         self.file_path = Path(file_path)
 
     def save_checkpoint(

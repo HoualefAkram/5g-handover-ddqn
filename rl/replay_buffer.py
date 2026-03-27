@@ -6,7 +6,7 @@ from pathlib import Path
 class ReplayBuffer:
     def __init__(
         self,
-        file_path: str = "training/replay_buffer.pkl",
+        file_path: str = "cache/training/replay_buffer.pkl",
         max_len: int = 10000,
     ):
         self.file_path = Path(file_path)
