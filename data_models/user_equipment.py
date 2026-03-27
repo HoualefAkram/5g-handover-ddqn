@@ -13,6 +13,8 @@ init(autoreset=True)
 
 class UserEquipment:
 
+    __min_time_of_stay: float = 3.0
+
     def __init__(
         self,
         id: int,
@@ -54,7 +56,7 @@ class UserEquipment:
         """Returns the total number of handovers (excludes the initial connection)."""
         return max(0, len(self.connection_history) - 1)
 
-    def get_total_pingpong(self, min_time_of_stay: float = 3.0) -> int:
+    def get_total_pingpong(self) -> int:
         """Counts ping-pong handovers: A→B→A where time spent on B < min_time_of_stay (seconds)."""
         count = 0
         history = self.connection_history
@@ -64,11 +66,11 @@ class UserEquipment:
             bs_return, t_left_b = history[i + 2]
             if bs_a == bs_return and bs_a != bs_b:
                 time_on_b = t_left_b - t_arrived_b
-                if time_on_b < min_time_of_stay:
+                if time_on_b < self.__min_time_of_stay:
                     count += 1
         return count
 
-    def get_pingpong_rate(self, min_time_of_stay: float = 1.0) -> float:
+    def get_pingpong_rate(self) -> float:
         """
         Calculates the Ping-Pong Handover Rate.
         Returns the ratio of ping-pong handovers to total handovers as a float (0.0 to 1.0).
@@ -79,7 +81,7 @@ class UserEquipment:
         if total_handovers == 0:
             return 0.0
 
-        total_pingpong = self.get_total_pingpong(min_time_of_stay=min_time_of_stay)
+        total_pingpong = self.get_total_pingpong()
 
         return total_pingpong / total_handovers
 
