@@ -6,9 +6,10 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 # --- Custom Imports ---
-from handover_env import HandoverEnv
-from replay_buffer import ReplayBuffer
-from checkpoint_manager import CheckpointManager
+from data_models.latlng import LatLng
+from rl.handover_env import HandoverEnv
+from rl.replay_buffer import ReplayBuffer
+from rl.checkpoint_manager import CheckpointManager
 from utils.logger import Logger
 
 # ==========================================
@@ -41,7 +42,11 @@ def hard_update(target_net, policy_net):
 # 2. INITIALIZATION & HYPERPARAMETERS
 # ==========================================
 
-env = HandoverEnv(top_left=35.705, bottom_right=35.700, mcc=208)
+MAP_TOP_LEFT = LatLng(51.519411, -0.148076)  # London
+MAP_BOTTOM_RIGHT = LatLng(51.499324, -0.109732)  # London
+MCC = 234  # UK
+
+env = HandoverEnv(top_left=MAP_TOP_LEFT, bottom_right=MAP_BOTTOM_RIGHT, mcc=MCC)
 
 epoches = 500
 lr = 1e-3

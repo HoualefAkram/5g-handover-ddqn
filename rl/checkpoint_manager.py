@@ -50,5 +50,5 @@ class CheckpointManager:
             )
             return start_epoch, epsilon
         else:
-            print("🆕 No checkpoint found. Starting a fresh training session.")
+            print("No checkpoint found. Starting a fresh training session.")
             return 0, default_epsilon
