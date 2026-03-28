@@ -22,7 +22,7 @@ This simulator models that process from first principles using real map data, re
 - **Multi-UE support** — simulate multiple cars simultaneously
 - **Interactive map output** — Folium HTML visualization, auto-opened in browser
 - **TensorBoard logging** — per-UE RSRP/RSRQ metrics tracked over time, with auto-launch support
-- **RL foundation** — Gymnasium environment and DDQN agent scaffolding for handover optimization
+- **DDQN training pipeline** — Gymnasium environment, Double DQN agent, experience replay, checkpointing, GPU support
 
 ---
 
@@ -33,7 +33,6 @@ city-car-simulator/
 │
 ├── prepare.py                  # Data preparation — downloads maps, towers, generates SUMO traffic
 ├── test.py                     # Main simulation — runs handover sim, logs metrics, renders map
-├── train.py                    # RL training entry point (placeholder)
 │
 ├── data_models/
 │   ├── user_equipment.py       # UE class (car / mobile device) with handover logic
@@ -45,7 +44,9 @@ city-car-simulator/
 │
 ├── rl/
 │   ├── handover_env.py         # Gymnasium environment for handover decisions
-│   └── ddqn_agent.py           # Double DQN agent with experience replay
+│   ├── ddqn_agent.py           # DDQN training loop (main training entry point)
+│   ├── replay_buffer.py        # Experience replay buffer with disk persistence
+│   └── checkpoint_manager.py   # Model checkpointing (epoch, epsilon, networks, optimizer)
 │
 ├── utils/
 │   ├── wave_utils.py           # RSRP, RSRQ, RSSI calculations
@@ -103,7 +104,7 @@ This will:
 2. Fetch real LTE/NR towers from OpenCellID → cached to `cache/towers/` (skipped if bbox matches)
 3. Generate vehicle traffic using SUMO (netconvert → randomTrips → duarouter → simulation)
 
-### 3. Run Simulation
+### 3. Run Simulation (3GPP A3 Baseline)
 
 ```bash
 python test.py
@@ -117,6 +118,23 @@ This will:
 5. Render an interactive map to `outputs/folium/simulation.html`
 6. Auto-launch TensorBoard for metric visualization
 
+### 4. Train DDQN Agent
+
+```bash
+python -m rl.ddqn_agent
+```
+
+This will:
+1. Initialize the Gymnasium handover environment (generates new SUMO traffic each episode)
+2. Train a Double DQN agent with epsilon-greedy exploration
+3. Log training metrics (reward, loss, Q-values, handovers, ping-pongs) to TensorBoard
+4. Save checkpoints to `cache/training/` after each epoch
+5. Export the final model to `outputs/final_ddqn_model.pth`
+
+Set `USE_GPU = True` (default) in `rl/ddqn_agent.py` to train on CUDA if available, or `False` to force CPU.
+
+> **Note:** The replay buffer (`cache/training/replay_buffer.pkl`) and checkpoint (`cache/training/ddqn_checkpoint.pth`) persist across runs for seamless resume. If you change the environment config (map, towers, observation shape), delete `cache/training/` before retraining to avoid stale data.
+
 ---
 
 ## Configuration
@@ -125,12 +143,26 @@ Simulation parameters are configured in `prepare.py` and `test.py`:
 
 | Parameter | Default | Description |
 |---|---|---|
-| `top_left` | `(51.511308, -0.157363)` | NW corner of simulation area (London) |
-| `bottom_right` | `(51.496028, -0.125348)` | SE corner of simulation area |
-| `num_ue` | Parsed from FCD data | Number of cars to simulate |
-| `seed` | `200` | Random seed for reproducible SUMO traffic |
-| `SHOW_FOLIUM_OUTPUT` | `True` | Auto-open HTML output in browser |
-| `SHOW_TENSORBOARD_OUTPUT` | `True` | Auto-launch TensorBoard |
+| `MAP_TOP_LEFT` | `(51.519411, -0.148076)` | NW corner of simulation area (London) |
+| `MAP_BOTTOM_RIGHT` | `(51.499324, -0.109732)` | SE corner of simulation area |
+| `MCC` | `234` | Mobile Country Code (UK) |
+| `SEED` | `200` | Random seed for reproducible SUMO traffic |
+| `STEP_LENGTH` | `1` | Simulation step length in seconds |
+| `SHOW_FOLIUM_OUTPUT` | `True` | Auto-open HTML output in browser (`test.py`) |
+| `SHOW_TENSORBOARD_OUTPUT` | `True` | Auto-launch TensorBoard (`test.py`) |
+
+### Training Hyperparameters (`rl/ddqn_agent.py`)
+
+| Parameter | Default | Description |
+|---|---|---|
+| `USE_GPU` | `True` | Use CUDA GPU if available, `False` to force CPU |
+| `epoches` | `500` | Number of training episodes |
+| `lr` | `1e-3` | Adam learning rate |
+| `gamma` | `0.99` | Discount factor |
+| `decay_val` | `0.99` | Epsilon decay multiplier per epoch |
+| `min_epsilon` | `0.05` | Minimum exploration rate |
+| `update_rate` | `100` | Target network hard update interval (training steps) |
+| `batch_size` | `32` | Replay buffer sample size |
 
 ---
 
@@ -222,19 +254,29 @@ RSRP(neighbor) > RSRP(serving) + hysteresis
 | Algorithm | Status | Description |
 |---|---|---|
 | `A3_RSRP_3GPP` | Implemented | Standard 3GPP A3 event with hysteresis and TTT |
-| `DDQN_CHO` | Planned | Deep Double Q-Network for learned handover optimization |
+| `DDQN_CHO` | In Progress | Deep Double Q-Network for learned handover optimization |
 
 ---
 
 ## Reinforcement Learning
 
-The project includes scaffolding for RL-based handover optimization:
+The project includes a full DDQN training pipeline for learned handover optimization:
 
-- **Gymnasium Environment** (`rl/handover_env.py`) — action space: choose 1 of 4 base stations; observation space: 8 RSRP/RSRQ values + 4 one-hot current action
-- **DDQN Agent** (`rl/ddqn_agent.py`) — Double DQN with experience replay, epsilon-greedy exploration, and target network hard updates
-- **TensorBoard Logger** (`utils/logger.py`) — tracks per-UE signal metrics, episode reward, loss, and epsilon over training
+- **Gymnasium Environment** (`rl/handover_env.py`) — action space: choose 1 of top-4 base stations; observation: 4 normalized RSRP + 4 normalized RSRQ + 4 serving one-hot = 12 features
+- **DDQN Agent** (`rl/ddqn_agent.py`) — Double DQN with experience replay, epsilon-greedy exploration, target network hard updates, and GPU support
+- **Replay Buffer** (`rl/replay_buffer.py`) — persistent experience replay with disk save/load
+- **Checkpoint Manager** (`rl/checkpoint_manager.py`) — saves/resumes training state (epoch, epsilon, networks, optimizer) with cross-device support
+- **TensorBoard Logger** (`utils/logger.py`) — tracks per-UE signal metrics, episode reward, loss, Q-values, handovers, and ping-pong rate
 
-The RL environment and training loop (`train.py`) are under active development.
+### Reward Design
+
+The reward uses a **counterfactual regret** framework — all signals are compared at the same physical position using the latest measurement report:
+
+| Scenario | Reward |
+|---|---|
+| Handover executed | `rsrp(new_tower) - rsrp(old_tower) + rsrq(new_tower) - rsrq(old_tower) - penalty` |
+| Stay on best tower | `0.0` (optimal — no regret) |
+| Stay on suboptimal tower | `(rsrp(current) - rsrp(best)) + (rsrq(current) - rsrq(best))` (negative regret) |
 
 ---
 
@@ -251,12 +293,14 @@ The RL environment and training loop (`train.py`) are under active development.
 - [x] Multiple UEs
 - [x] TensorBoard metric logging
 - [x] Separated data preparation and simulation scripts
-- [x] DDQN agent scaffolding
-- [ ] Integrate DDQN agent with handover environment
-- [ ] RL training loop
-- [ ] Performance metrics (ping-pong rate, handover failures)
+- [x] DDQN agent with full training loop
+- [x] Gymnasium handover environment (top-4 filtering, counterfactual reward)
+- [x] Experience replay with disk persistence
+- [x] Checkpoint save/resume
+- [x] GPU support (CUDA)
+- [x] Performance metrics (ping-pong rate, handover count)
 - [ ] Shadowing / slow fading
-- [ ] RL agent for handover optimization
+- [ ] Trained DDQN agent evaluation vs 3GPP A3 baseline
 
 ---
 
