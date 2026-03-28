@@ -58,18 +58,18 @@ env = HandoverEnv(
 )
 
 epoches = 500
-lr = 1e-3
+lr = 5e-4
 decay_val = 0.99
 min_epsilon = 0.05
-gamma = 0.99
-update_rate = 100
-batch_size = 32
+gamma = 0.97
+update_rate = 200
+batch_size = 64
 
 policy_network = QNetwork().to(device)
 target_network = QNetwork().to(device)
 hard_update(target_network, policy_network)
 
-criterion = nn.MSELoss()
+criterion = nn.SmoothL1Loss()
 adam = optim.Adam(policy_network.parameters(), lr=lr)
 
 memory = ReplayBuffer()

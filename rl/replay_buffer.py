@@ -7,7 +7,7 @@ class ReplayBuffer:
     def __init__(
         self,
         file_path: str = "cache/training/replay_buffer.pkl",
-        max_len: int = 10000,
+        max_len: int = 50000,
     ):
         self.file_path = Path(file_path)
         self.queue = deque(maxlen=max_len)
