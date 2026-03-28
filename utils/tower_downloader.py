@@ -177,12 +177,11 @@ class TowerDownloader:
             else:
                 tower_id = raw_cell_id >> 8  # Fallback
 
-            tower = BaseTower(
-                id=tower_id,
-                latlng=LatLng(cell["lat"], cell["lon"]),
-                radio=radio,
-                connected_ues=[],
-            )
+            latlng = LatLng(cell["lat"], cell["lon"])
+            if radio == "LTE":
+                tower = BaseTower.LTE(id=tower_id, latlng=latlng)
+            else:
+                tower = BaseTower.NR(id=tower_id, latlng=latlng)
             towers.append(tower)
 
         filtered = list(set(towers))

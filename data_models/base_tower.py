@@ -14,11 +14,11 @@ class BaseTower:
         id: int,
         latlng: LatLng,
         connected_ues: list[UserEquipment],
-        p_tx: float = 43.0,
-        frequency: float = 3.5e9,  # 4G LTE (common)2100 MHz, 4G LTE (low band)800 MHz, 5G sub-6GHz 3500 MHz, 5G mmWave 28 GHz
-        bandwidth: float = 100e6,  # channel width, 20 MHz Minimum 5G deployment, 50 MHz Common 5G urban, 100 MHz Typical 5G urban, 200 MHz High-end 5G
-        g_tx: float = 15,  # +14 to +17 dBi
-        radio: Optional[str] = None,
+        p_tx: float,
+        frequency: float,
+        bandwidth: float,
+        g_tx: float,
+        radio: str,
     ):
         self.id = id
         self.latlng: LatLng = latlng
@@ -28,6 +28,46 @@ class BaseTower:
         self.frequency = frequency
         self.bandwidth = bandwidth
         self.radio = radio
+
+    @classmethod
+    def LTE(cls, id: int, latlng: LatLng, connected_ues: list[UserEquipment] = None):
+        """
+        UK LTE macro cell defaults (Band 3 — 1800 MHz).
+        - P_tx: 46 dBm (40W), 3GPP TS 36.104 Table 6.2.1-1 (Wide Area BS)
+        - G_tx: 15 dBi, typical 3-sector panel antenna
+        - Frequency: 1800 MHz (Band 3, most deployed UK LTE band)
+        - Bandwidth: 20 MHz (max LTE carrier, standard UK deployment)
+        """
+        return cls(
+            id=id,
+            latlng=latlng,
+            connected_ues=connected_ues or [],
+            p_tx=46.0,
+            frequency=1800e6,
+            bandwidth=20e6,
+            g_tx=15.0,
+            radio="LTE",
+        )
+
+    @classmethod
+    def NR(cls, id: int, latlng: LatLng, connected_ues: list[UserEquipment] = None):
+        """
+        UK 5G NR macro cell defaults (n78 — 3500 MHz sub-6 GHz).
+        - P_tx: 43 dBm (20W per carrier), 3GPP TS 38.104 Table 6.2.1-1 (Wide Area BS)
+        - G_tx: 17 dBi, massive MIMO panel (typical 64T64R beamforming gain)
+        - Frequency: 3500 MHz (n78, primary UK 5G band — EE, Three, Vodafone)
+        - Bandwidth: 100 MHz (typical n78 allocation per operator)
+        """
+        return cls(
+            id=id,
+            latlng=latlng,
+            connected_ues=connected_ues or [],
+            p_tx=43.0,
+            frequency=3500e6,
+            bandwidth=100e6,
+            g_tx=17.0,
+            radio="NR",
+        )
 
     def __repr__(self):
         return f"BaseTower(id: {self.id}, connected_ues: {len(self.connected_ues)})"
