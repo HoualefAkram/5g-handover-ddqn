@@ -28,12 +28,13 @@ class CheckpointManager:
         policy_net,
         target_net,
         optimizer,
+        device=None,
         default_epsilon: float = 1.0,
     ):
         """Loads the state into the models/optimizer and returns the current epoch and epsilon."""
         if self.file_path.exists() and self.file_path.is_file():
             # Load the dictionary back into RAM
-            checkpoint = torch.load(self.file_path)
+            checkpoint = torch.load(self.file_path, map_location=device)
 
             # override the nets and optimizer with the saved values
             policy_net.load_state_dict(checkpoint["policy_net_state_dict"])

@@ -46,6 +46,9 @@ def hard_update(target_net, policy_net):
 # ==========================================
 
 
+USE_GPU = True
+device = torch.device("cuda" if USE_GPU and torch.cuda.is_available() else "cpu")
+
 env = HandoverEnv(
     top_left=MAP_TOP_LEFT,
     bottom_right=MAP_BOTTOM_RIGHT,
@@ -61,8 +64,8 @@ gamma = 0.99
 update_rate = 100
 batch_size = 32
 
-policy_network = QNetwork()
-target_network = QNetwork()
+policy_network = QNetwork().to(device)
+target_network = QNetwork().to(device)
 hard_update(target_network, policy_network)
 
 criterion = nn.MSELoss()
@@ -73,7 +76,7 @@ checkpoint_manager = CheckpointManager()
 tb_logger = Logger(logdir="outputs/runs")  # Initialize TensorBoard Writer
 
 start_epoch, epsilon = checkpoint_manager.load_checkpoint(
-    policy_network, target_network, adam, default_epsilon=1.0
+    policy_network, target_network, adam, device=device, default_epsilon=1.0
 )
 
 # ==========================================
@@ -82,7 +85,7 @@ start_epoch, epsilon = checkpoint_manager.load_checkpoint(
 
 counter = 0
 
-print("--- Starting DDQN Training ---")
+print(f"--- Starting DDQN Training on {device} ---")
 # To view your graphs, open a new terminal and run: tensorboard --logdir=outputs/runs
 print(
     "TensorBoard is active! Run 'tensorboard --logdir=outputs/runs' to view progress."
@@ -103,7 +106,7 @@ for epoche in range(start_epoch, epoches):
     ep_rsrq_sum = 0.0
 
     while not done:
-        state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
+        state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0).to(device)
 
         # Epsilon-Greedy Action Selection
         if random.uniform(0, 1) < epsilon:
@@ -138,11 +141,11 @@ for epoche in range(start_epoch, epoches):
             batch = random.sample(memory.queue, batch_size)
             b_states, b_actions, b_rewards, b_new_states, b_dones = zip(*batch)
 
-            b_states_t = torch.tensor(np.array(b_states), dtype=torch.float32)
-            b_new_states_t = torch.tensor(np.array(b_new_states), dtype=torch.float32)
-            b_actions_t = torch.tensor(b_actions, dtype=torch.int64).unsqueeze(1)
-            b_rewards_t = torch.tensor(b_rewards, dtype=torch.float32).unsqueeze(1)
-            b_dones_t = torch.tensor(b_dones, dtype=torch.float32).unsqueeze(1)
+            b_states_t = torch.tensor(np.array(b_states), dtype=torch.float32).to(device)
+            b_new_states_t = torch.tensor(np.array(b_new_states), dtype=torch.float32).to(device)
+            b_actions_t = torch.tensor(b_actions, dtype=torch.int64).unsqueeze(1).to(device)
+            b_rewards_t = torch.tensor(b_rewards, dtype=torch.float32).unsqueeze(1).to(device)
+            b_dones_t = torch.tensor(b_dones, dtype=torch.float32).unsqueeze(1).to(device)
 
             with torch.no_grad():
                 best_next_action_idxs = torch.argmax(
