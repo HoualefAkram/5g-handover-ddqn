@@ -15,10 +15,19 @@ from utils.wave_utils import WaveUtils
 
 class HandoverEnv(gym.Env):
 
-    def __init__(self, top_left: float, bottom_right: float, mcc: int):
+    def __init__(
+        self,
+        top_left: float,
+        bottom_right: float,
+        mcc: int,
+        step_len: int,
+    ):
         super().__init__()
         # Prepare Env
-        PathGeneration.quick_run(skip_netconvert=False)
+        PathGeneration.quick_run(
+            skip_netconvert=False,
+            step_length=step_len,
+        )
         MapDownloader.download_osm_by_bbox(
             top_left=top_left,
             bottom_right=bottom_right,
@@ -36,6 +45,7 @@ class HandoverEnv(gym.Env):
         self.action_space = Discrete(4)
         # observation Space
         self.observation_space = Box(low=0.0, high=1.0, shape=(12,), dtype=np.float32)
+        self.step_len = step_len
 
         self.steps = 0
 
@@ -204,7 +214,10 @@ class HandoverEnv(gym.Env):
         self.steps = 0
 
         # Generate new randomized traffic scenario (quick_run has a random seed built in)
-        PathGeneration.quick_run(skip_netconvert=True)
+        PathGeneration.quick_run(
+            skip_netconvert=True,
+            step_length=self.step_len,
+        )
         self.fcd_data = FcdParser.parse_fcd_trace()
         num_ue = FcdParser.count_vehicles()
 
