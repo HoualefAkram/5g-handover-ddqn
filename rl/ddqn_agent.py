@@ -12,7 +12,7 @@ from rl.handover_env import HandoverEnv
 from rl.replay_buffer import ReplayBuffer
 from rl.checkpoint_manager import CheckpointManager
 from utils.logger import Logger
-from prepare import MAP_TOP_LEFT, MAP_BOTTOM_RIGHT, MCC, SEED, STEP_LENGTH
+from prepare import MAP_TOP_LEFT, MAP_BOTTOM_RIGHT, MCC, SIMULATION_TIME, STEP_LENGTH
 
 
 # ==========================================
@@ -54,6 +54,7 @@ env = HandoverEnv(
     bottom_right=MAP_BOTTOM_RIGHT,
     mcc=MCC,
     step_len=STEP_LENGTH,
+    simulation_time=SIMULATION_TIME,
 )
 
 epoches = 500
@@ -141,11 +142,21 @@ for epoche in range(start_epoch, epoches):
             batch = random.sample(memory.queue, batch_size)
             b_states, b_actions, b_rewards, b_new_states, b_dones = zip(*batch)
 
-            b_states_t = torch.tensor(np.array(b_states), dtype=torch.float32).to(device)
-            b_new_states_t = torch.tensor(np.array(b_new_states), dtype=torch.float32).to(device)
-            b_actions_t = torch.tensor(b_actions, dtype=torch.int64).unsqueeze(1).to(device)
-            b_rewards_t = torch.tensor(b_rewards, dtype=torch.float32).unsqueeze(1).to(device)
-            b_dones_t = torch.tensor(b_dones, dtype=torch.float32).unsqueeze(1).to(device)
+            b_states_t = torch.tensor(np.array(b_states), dtype=torch.float32).to(
+                device
+            )
+            b_new_states_t = torch.tensor(
+                np.array(b_new_states), dtype=torch.float32
+            ).to(device)
+            b_actions_t = (
+                torch.tensor(b_actions, dtype=torch.int64).unsqueeze(1).to(device)
+            )
+            b_rewards_t = (
+                torch.tensor(b_rewards, dtype=torch.float32).unsqueeze(1).to(device)
+            )
+            b_dones_t = (
+                torch.tensor(b_dones, dtype=torch.float32).unsqueeze(1).to(device)
+            )
 
             with torch.no_grad():
                 best_next_action_idxs = torch.argmax(

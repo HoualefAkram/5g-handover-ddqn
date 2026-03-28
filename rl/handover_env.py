@@ -21,12 +21,14 @@ class HandoverEnv(gym.Env):
         bottom_right: float,
         mcc: int,
         step_len: int,
+        simulation_time: float,
     ):
         super().__init__()
         # Prepare Env
         PathGeneration.quick_run(
             skip_netconvert=False,
             step_length=step_len,
+            simulation_time=simulation_time,
         )
         MapDownloader.download_osm_by_bbox(
             top_left=top_left,
@@ -46,6 +48,7 @@ class HandoverEnv(gym.Env):
         # observation Space
         self.observation_space = Box(low=0.0, high=1.0, shape=(12,), dtype=np.float32)
         self.step_len = step_len
+        self.self.simulation_time = self.simulation_time
 
         self.steps = 0
 
@@ -216,6 +219,7 @@ class HandoverEnv(gym.Env):
         PathGeneration.quick_run(
             skip_netconvert=True,
             step_length=self.step_len,
+            simulation_time=self.simulation_time,
         )
         self.fcd_data = FcdParser.parse_fcd_trace()
         num_ue = FcdParser.count_vehicles()

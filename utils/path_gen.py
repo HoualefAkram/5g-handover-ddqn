@@ -137,6 +137,7 @@ class PathGeneration:
 
     @staticmethod
     def quick_run(
+        simulation_time: float,
         step_length: float = 1,
         osm_file: str = "cache/maps/map.osm",
         gui: bool = False,
@@ -148,4 +149,5 @@ class PathGeneration:
             skip_netconvert=skip_netconvert,
             seed=randint(0, 10000),
             step_length=step_length,
+            end_simulation=simulation_time,
         ).run()
