@@ -46,7 +46,7 @@ class CheckpointManager:
             epsilon = checkpoint["epsilon"]
 
             print(
-                f"heckpoint found... Resuming at Epoch {start_epoch} with Epsilon {epsilon:.3f}"
+                f"Checkpoint found... Resuming at Epoch {start_epoch} with Epsilon {epsilon:.3f}"
             )
             return start_epoch, epsilon
         else:
