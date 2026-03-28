@@ -215,5 +215,9 @@ for epoche in range(start_epoch, epoches):
         f"{Fore.RED}| Ping-Pongs: {env.agent.get_total_pingpong()}"
     )
 
-# Close the TensorBoard writer when completely finished
+# Close TensorBoard
 tb_logger.close()
+
+# --- EXPORT MODEL ---
+print(f"{Fore.GREEN}{Style.BRIGHT}Training Complete! Exporting final model...")
+torch.save(policy_network.state_dict(), "outputs/final_ddqn_model.pth")
