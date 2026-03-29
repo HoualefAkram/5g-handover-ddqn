@@ -123,7 +123,12 @@ class HandoverEnv(gym.Env):
                 car = self.user_equipments.get(fcd.car_id)
                 if car:
                     # All Cars will initiate the handover after moving using A3_RSRP except the agent (HandoverAlgorithm.NONE)
-                    car.move_to(fcd.latlng, timestep=fcd.timestep)
+                    car.move_to(
+                        fcd.latlng,
+                        timestep=fcd.timestep,
+                        speed=fcd.speed,
+                        angle=fcd.angle,
+                    )
 
         # Agent will have a new serving_bs ONLY if the action was to handover: [self.agent.handover(target_bs, timestep=timestep)]
         """
@@ -227,7 +232,12 @@ class HandoverEnv(gym.Env):
         # one of the checks is enough, just for safety
         if len(self.fcd_data) > 0 and self.agent.id in self.fcd_data[0]:
             start_data = self.fcd_data[0][self.agent.id]
-            report = self.agent.move_to(start_data.latlng, timestep=start_data.timestep)
+            report = self.agent.move_to(
+                start_data.latlng,
+                timestep=start_data.timestep,
+                speed=start_data.speed,
+                angle=start_data.angle,
+            )
             self.current_top_4 = self._top_4_towers(report)
         else:
             # Fallback just in case Car 0 doesn't spawn until timestep 2

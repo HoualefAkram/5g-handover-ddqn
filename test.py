@@ -79,7 +79,12 @@ for i in range(total_steps):
     for car_id, car_data in fcd.items():
         if car_id in cars:  # Safe check in case SUMO spawned extra vehicles
             car = cars[car_id]
-            report = car.move_to(car_data.latlng, timestep=car_data.timestep)
+            report = car.move_to(
+                car_data.latlng,
+                timestep=car_data.timestep,
+                speed=car_data.speed,
+                angle=car_data.angle,
+            )
             rsrp = report.rsrp_values[car.serving_bs.id]
             rsrq = report.rsrq_values[car.serving_bs.id]
             logger.log_ue_metric(

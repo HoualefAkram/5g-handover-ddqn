@@ -42,6 +42,8 @@ class UserEquipment:
         # (bs_id, timestep) after each connection
         self.connection_history: list[tuple[int, float]] = []
         self.handover_algorithm = handover_algorithm
+        self.speed = 0
+        self.angle = 0
 
     @classmethod
     def load_model(
@@ -104,10 +106,18 @@ class UserEquipment:
 
         return total_pingpong / total_handovers
 
-    def __on_movement(self, timestep: float) -> NGRANReport:
+    def __on_movement(
+        self,
+        timestep: float,
+        speed: float,
+        angle: float,
+    ) -> NGRANReport:
         self.__append_path_history()
         report = self.generate_report(all_bs=self.all_bs, timestep=timestep)
         self.__append_generated_reports(report)
+
+        self.speed = speed
+        self.angle = angle
         # Logs
         if self.print_logs_on_movement:
             print(report)
@@ -140,22 +150,45 @@ class UserEquipment:
 
         return report
 
-    def move_deg(self, lat_offset: float, long_offset: float, timestep: float):
+    def move_deg(
+        self,
+        lat_offset: float,
+        long_offset: float,
+        timestep: float,
+        speed: float,
+        angle: float,
+    ):
         new_latitude = self.latlng.lat + lat_offset
         new_longitude = self.latlng.long + long_offset
         self.latlng = LatLng(lat=new_latitude, long=new_longitude)
-        self.__on_movement(timestep=timestep)
+        self.__on_movement(
+            timestep=timestep,
+            speed=speed,
+            angle=angle,
+        )
 
-    def move_meters(self, distance: float, timestep: float, angle: float = 0.0):
+    def move_meters(
+        self,
+        distance: float,
+        timestep: float,
+        speed: float,
+        angle: float = 0.0,
+    ):
         new_point: LatLng = LocationUtils.move_meters(
             point=self.latlng, distance=distance, angle=angle
         )
         self.latlng = new_point
-        self.__on_movement(timestep=timestep)
+        self.__on_movement(timestep=timestep, speed=speed, angle=angle)
 
-    def move_to(self, latlng: LatLng, timestep) -> NGRANReport:
+    def move_to(
+        self, latlng: LatLng, timestep, speed: float, angle: float
+    ) -> NGRANReport:
         self.latlng = latlng
-        return self.__on_movement(timestep=timestep)
+        return self.__on_movement(
+            timestep=timestep,
+            speed=speed,
+            angle=angle,
+        )
 
     def generate_report(
         self,
@@ -239,7 +272,8 @@ class UserEquipment:
         top_2 = indexed[:2]  # [(tower_idx, softmax_val), ...etc]
         # 5- Weighted Sum
         # All angles are clockwise, 0 = north, TODO: get angles
-        angle_ue = ...
+        angle_ue = self.angle
+
         angle_tower1 = ...
         angle_tower2 = ...
 
