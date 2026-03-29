@@ -151,7 +151,7 @@ fcd_data: list[dict[int, CarFcdData]] = FcdParser.parse_fcd_trace()
 # ===========================
 # A3 RSRP
 # ===========================
-a3_rsrp_logger = Logger(logdir=LOGDIR, name="A3 RSRP")
+a3_rsrp_logger = Logger(logdir=LOGDIR, name="A3_RSRP")
 # Initialize User Equipment (Cars)
 num_ue = FcdParser.count_vehicles()
 a3_rsrp_cars: dict[int, UserEquipment] = {

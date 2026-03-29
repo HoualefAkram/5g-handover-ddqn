@@ -19,7 +19,7 @@ class Logger:
         PINGPONG_RATE = "Pingpong_Rate"
 
     def __init__(self, name: Optional[str], logdir: str = "outputs/runs"):
-        prefix = f"_{name}" if name is not None else ""
+        prefix = f"{name}_" if name is not None else ""
         run_name = f'{prefix}{datetime.now().strftime("%Y%m%d_%H%M%S")}'
         run_dir = Path(logdir) / run_name
         run_dir.mkdir(parents=True, exist_ok=True)
