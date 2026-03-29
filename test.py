@@ -52,7 +52,7 @@ def simulation(
         system_rsrqs_list = []
         system_handovers = []
         system_pingpongs = []
-        system_pingpons_rate = []
+        system_pingpongs_rate = []
         car_counter = 0
 
         for car_id, car_data in fcd.items():
@@ -76,7 +76,7 @@ def simulation(
                     system_rsrqs_list.append(rsrq)
                     system_handovers.append(car_handovers)
                     system_pingpongs.append(car_pingpongs)
-                    system_pingpons_rate.append(car_pingpongs_rate)
+                    system_pingpongs_rate.append(car_pingpongs_rate)
 
                     car_counter += 1
 
@@ -118,8 +118,10 @@ def simulation(
         avg_handovers = handovers / car_counter if car_counter > 0 else 0.0
         pingpongs = sum(system_pingpongs)
         avg_pingpongs = pingpongs / car_counter if car_counter > 0 else 0.0
-        pingpongs_rate = sum(system_pingpons_rate)
+        pingpongs_rate = sum(system_pingpongs_rate)
         avg_pingpong_rate = pingpongs_rate / car_counter if car_counter > 0 else 0.0
+        if not fcd:
+            continue
         current_step = list(fcd.values())[0].timestep
         logger.log_global_metric(
             metric=Logger.Metric.AVERAGE_RSRP,
@@ -294,10 +296,13 @@ if __name__ == "__main__":
     # Folium & TensorBoard Outputs
     # ===========================
 
-    if TEST_A3_RSRP or TEST_DDQN:
+    # Use whichever car list was created (prefer A3 RSRP, fall back to DDQN)
+    last_cars = a3_rsrp_cars if TEST_A3_RSRP else (ddqn_cars if TEST_DDQN else None)
+
+    if last_cars is not None:
         # Render Final Map
         print(Fore.CYAN + Style.BRIGHT + "--- Rendering Final Output ---")
-        Render.render_map(bs_list=bs_list, ue_list=list(a3_rsrp_cars.values()))
+        Render.render_map(bs_list=bs_list, ue_list=list(last_cars.values()))
         if SHOW_FOLIUM_OUTPUT:
             webbrowser.open(Path(FOLIUM_OUTPUT).resolve().as_uri())
 
