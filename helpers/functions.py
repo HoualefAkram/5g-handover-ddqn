@@ -15,14 +15,25 @@ class Functions:
     @staticmethod
     def softmax_all(all_values: list[float]) -> list[float]:
         """Returns the softmax output of all_values"""
-        return [
-            Functions.softmax(all_values=all_values, index=i)
-            for i in range(len(all_values))
-        ]
+        if not all_values:
+            return []
+
+        max_val = max(all_values)
+        exps = [exp(v - max_val) for v in all_values]
+        denominator = sum(exps)
+
+        return [e / denominator for e in exps]
 
     @staticmethod
-    def cos_similarity(angle1: float, angle2: float):
-        return cos(radians(angle1 - angle2))
+    def cos_similarity(angle1: float, angle2: float) -> float:
+        """
+        Returns similarity shifted to [0.0, 1.0].
+        1.0 = Driving directly towards
+        0.5 = Perpendicular
+        0.0 = Driving directly away
+        """
+        raw_cos = cos(radians(angle1 - angle2))
+        return (raw_cos + 1.0) / 2.0
 
     @staticmethod
     def weighted_sum(values: list[float], weights: list[float]):
