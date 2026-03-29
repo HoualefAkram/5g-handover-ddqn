@@ -1,4 +1,6 @@
-from math import exp, cos, radians
+from math import exp, cos, radians, degrees, atan2
+
+from data_models.latlng import LatLng
 
 
 class Functions:
@@ -42,3 +44,10 @@ class Functions:
         for i in range(len(values)):
             s += values[i] * weights[i]
         return s
+
+    @staticmethod
+    def bearing(pointA: LatLng, pointB: LatLng):
+        dy = pointB.lat - pointA.lat
+        dx = pointB.long - pointA.long
+        # Convert to degrees, where 0 is North, clockwise
+        return (degrees(atan2(dx, dy)) + 360) % 360
