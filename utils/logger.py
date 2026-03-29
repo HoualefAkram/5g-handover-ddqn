@@ -17,8 +17,11 @@ class Logger:
         AVERAGE_RSRQ = "AVERAGE_RSRQ"
         EPSILON = "Epsilon"
         TOTAL_HANDOVERS = "Total_Handovers"
+        AVERAGE_HANDOVERS = "Average_Handovers"
         TOTAL_PINGPONG = "Total_Pingpong"
+        AVERAGE_PINGPONG = "Average_Pingpong"
         PINGPONG_RATE = "Pingpong_Rate"
+        AVERAGE_PINGPONG_RATE = "Average_Pingpong_Rate"
 
     def __init__(self, name: Optional[str], logdir: str = "outputs/runs"):
         prefix = f"{name}_" if name is not None else ""

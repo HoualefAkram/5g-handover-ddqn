@@ -48,8 +48,11 @@ def simulation(
             end="",
         )
 
-        rsrps_list = []
-        rsrqs_list = []
+        system_rsrps_list = []
+        system_rsrqs_list = []
+        system_handovers = []
+        system_pingpongs = []
+        system_pingpons_rate = []
         car_counter = 0
 
         for car_id, car_data in fcd.items():
@@ -65,9 +68,16 @@ def simulation(
                 if car.serving_bs:
                     rsrp = report.rsrp_values.get(car.serving_bs.id, 0)
                     rsrq = report.rsrq_values.get(car.serving_bs.id, 0)
+                    car_handovers = car.get_total_handovers()
+                    car_pingpongs = car.get_total_pingpong()
+                    car_pingpongs_rate = car.get_pingpong_rate()
 
-                    rsrps_list.append(rsrp)
-                    rsrqs_list.append(rsrq)
+                    system_rsrps_list.append(rsrp)
+                    system_rsrqs_list.append(rsrq)
+                    system_handovers.append(car_handovers)
+                    system_pingpongs.append(car_pingpongs)
+                    system_pingpons_rate.append(car_pingpongs_rate)
+
                     car_counter += 1
 
                     logger.log_ue_metric(
@@ -83,27 +93,33 @@ def simulation(
                         value=rsrq,
                     )
 
-                logger.log_ue_metric(
-                    ue_index=car.id,
-                    metric=Logger.Metric.TOTAL_HANDOVERS,
-                    step=car_data.timestep,
-                    value=car.get_total_handovers(),
-                )
-                logger.log_ue_metric(
-                    ue_index=car.id,
-                    metric=Logger.Metric.TOTAL_PINGPONG,
-                    step=car_data.timestep,
-                    value=car.get_total_pingpong(),
-                )
-                logger.log_ue_metric(
-                    ue_index=car.id,
-                    metric=Logger.Metric.PINGPONG_RATE,
-                    step=car_data.timestep,
-                    value=car.get_pingpong_rate(),
-                )
+                    logger.log_ue_metric(
+                        ue_index=car.id,
+                        metric=Logger.Metric.TOTAL_HANDOVERS,
+                        step=car_data.timestep,
+                        value=car_handovers,
+                    )
+                    logger.log_ue_metric(
+                        ue_index=car.id,
+                        metric=Logger.Metric.TOTAL_PINGPONG,
+                        step=car_data.timestep,
+                        value=car_pingpongs,
+                    )
+                    logger.log_ue_metric(
+                        ue_index=car.id,
+                        metric=Logger.Metric.PINGPONG_RATE,
+                        step=car_data.timestep,
+                        value=car_pingpongs_rate,
+                    )
 
-        avg_rsrp = sum(rsrps_list) / car_counter if car_counter > 0 else 0.0
-        avg_rsrq = sum(rsrqs_list) / car_counter if car_counter > 0 else 0.0
+        avg_rsrp = sum(system_rsrps_list) / car_counter if car_counter > 0 else 0.0
+        avg_rsrq = sum(system_rsrqs_list) / car_counter if car_counter > 0 else 0.0
+        handovers = sum(system_handovers)
+        avg_handovers = handovers / car_counter if car_counter > 0 else 0.0
+        pingpongs = sum(system_pingpongs)
+        avg_pingpongs = pingpongs / car_counter if car_counter > 0 else 0.0
+        pingpongs_rate = sum(system_pingpons_rate)
+        avg_pingpong_rate = pingpongs_rate / car_counter if car_counter > 0 else 0.0
         current_step = list(fcd.values())[0].timestep
         logger.log_global_metric(
             metric=Logger.Metric.AVERAGE_RSRP,
@@ -113,6 +129,36 @@ def simulation(
         logger.log_global_metric(
             metric=Logger.Metric.AVERAGE_RSRQ,
             value=avg_rsrq,
+            step=current_step,
+        )
+        logger.log_global_metric(
+            metric=Logger.Metric.TOTAL_HANDOVERS,
+            value=handovers,
+            step=current_step,
+        )
+        logger.log_global_metric(
+            metric=Logger.Metric.AVERAGE_HANDOVERS,
+            value=avg_handovers,
+            step=current_step,
+        )
+        logger.log_global_metric(
+            metric=Logger.Metric.TOTAL_PINGPONG,
+            value=pingpongs,
+            step=current_step,
+        )
+        logger.log_global_metric(
+            metric=Logger.Metric.AVERAGE_PINGPONG,
+            value=avg_pingpongs,
+            step=current_step,
+        )
+        logger.log_global_metric(
+            metric=Logger.Metric.PINGPONG_RATE,
+            value=pingpongs_rate,
+            step=current_step,
+        )
+        logger.log_global_metric(
+            metric=Logger.Metric.AVERAGE_PINGPONG_RATE,
+            value=avg_pingpong_rate,
             step=current_step,
         )
 
