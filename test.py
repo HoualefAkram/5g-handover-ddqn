@@ -25,7 +25,6 @@ LOGDIR = "outputs/runs"
 
 init(autoreset=True)
 
-logger = Logger(logdir=LOGDIR)
 print(Fore.CYAN + Style.BRIGHT + f"--- Starting Test ---")
 
 # Base Stations
@@ -41,7 +40,10 @@ if not bs_list:
 # Parse Trace and Move Cars
 fcd_data: list[dict[int, CarFcdData]] = FcdParser.parse_fcd_trace()
 
-
+# ===========================
+# A3 RSRP
+# ===========================
+logger = Logger(logdir=LOGDIR, name="A3 RSRP")
 # Initialize User Equipment (Cars)
 num_ue = FcdParser.count_vehicles()
 cars: dict[int, UserEquipment] = {
@@ -154,6 +156,18 @@ print(Fore.RED + Style.BRIGHT + f"Global Handovers: {global_total_handovers}")
 print(Fore.RED + Style.BRIGHT + f"Global Ping Pongs: {global_total_pingpong}")
 print(Fore.RED + Style.BRIGHT + f"Global Ping Pong rate: {global_pingpong_rate * 100}%")
 
+
+# ===========================
+# DDQN
+# ===========================
+
+UserEquipment.load_model()
+
+
+# ===========================
+# Folium & TensorBoard Outputs
+# ===========================
+
 # Render Final Map
 print(Fore.CYAN + Style.BRIGHT + "--- Rendering Final Output ---")
 Render.render_map(bs_list=bs_list, ue_list=list(cars.values()))
@@ -171,7 +185,7 @@ if SHOW_TENSORBOARD_OUTPUT:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    time.sleep(3)
+    time.sleep(5)
     webbrowser.open(f"http://localhost:{tb_port}")
 
     print(Fore.GREEN + Style.BRIGHT + "--- Test Done! ---")
@@ -179,34 +193,3 @@ if SHOW_TENSORBOARD_OUTPUT:
         Fore.YELLOW
         + f"TensorBoard running at http://localhost:{tb_port} (PID: {tb_process.pid})"
     )
-
-
-# from stable_baselines3 import DQN
-# from stable_baselines3.common.env_checker import check_env
-
-# from data_models.latlng import LatLng
-# from rl.handover_env import HandoverEnv
-
-# MAP_TOP_LEFT = LatLng(51.514972, -0.224227)  # London
-# MAP_BOTTOM_RIGHT = LatLng(51.474531, -0.046389)  # London
-# MCC = 234  # UK
-
-# # 1. Initialize your custom environment
-# env = HandoverEnv(
-#     top_left=MAP_TOP_LEFT, bottom_right=MAP_BOTTOM_RIGHT, mcc=MCC
-# )  # Example coords
-
-# # 2. Run the SB3 sanity checker (This is crucial! It will yell at you if any shapes are wrong)
-# check_env(env)
-# print("Environment passed all standard checks!")
-
-# # 3. Initialize the Double DQN Model
-# # MlpPolicy is standard for flat arrays like yours.
-# model = DQN("MlpPolicy", env, verbose=1, learning_rate=1e-3, buffer_size=50000)
-
-# # 4. Train the agent
-# print("Starting training...")
-# model.learn(total_timesteps=100000)
-
-# # 5. Save the brain
-# model.save("ddqn_handover_agent")

@@ -2,6 +2,7 @@ from enum import Enum
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 from pathlib import Path
+from typing import Optional
 
 
 class Logger:
@@ -17,8 +18,9 @@ class Logger:
         TOTAL_PINGPONG = "Total_Pingpong"
         PINGPONG_RATE = "Pingpong_Rate"
 
-    def __init__(self, logdir: str = "outputs/runs"):
-        run_name = datetime.now().strftime("%Y%m%d_%H%M%S")
+    def __init__(self, name: Optional[str], logdir: str = "outputs/runs"):
+        prefix = f"_{name}" if name is not None else ""
+        run_name = f'{prefix}{datetime.now().strftime("%Y%m%d_%H%M%S")}'
         run_dir = Path(logdir) / run_name
         run_dir.mkdir(parents=True, exist_ok=True)
         self.writer = SummaryWriter(str(run_dir))

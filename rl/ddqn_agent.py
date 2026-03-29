@@ -63,7 +63,9 @@ adam = optim.Adam(policy_network.parameters(), lr=lr)
 
 memory = ReplayBuffer()
 checkpoint_manager = CheckpointManager()
-tb_logger = Logger(logdir="outputs/runs")  # Initialize TensorBoard Writer
+tb_logger = Logger(
+    logdir="outputs/runs", name="Training"
+)  # Initialize TensorBoard Writer
 
 start_epoch, epsilon = checkpoint_manager.load_checkpoint(
     policy_network, target_network, adam, device=device, default_epsilon=1.0
