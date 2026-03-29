@@ -18,10 +18,10 @@ This simulator models that process from first principles using real map data, re
 - **Real tower data** — fetches live LTE/NR tower locations from OpenCellID, cached locally to avoid redundant API calls
 - **Realistic vehicle movement** — uses SUMO (Simulation of Urban Mobility) to generate traffic on actual streets
 - **3GPP-compliant signal model** — log-distance path loss, shadow fading (Gudmundson), fast fading (Rician/Rayleigh), RSRP, RSRQ, thermal noise
-- **3GPP A3 handover logic** — hysteresis-based handover decisions (3 dB margin) with Time-to-Trigger (TTT)
+- **3GPP A3 handover logic** — hysteresis-based handover decisions (2 dB margin) with Time-to-Trigger (TTT)
 - **Multi-UE support** — simulate multiple cars simultaneously
 - **Interactive map output** — Folium HTML visualization, auto-opened in browser
-- **TensorBoard logging** — per-UE RSRP/RSRQ metrics tracked over time, with auto-launch support
+- **TensorBoard logging** — per-UE and system-level metrics (RSRP, RSRQ, handovers, ping-pongs, averages) with auto-launch support
 - **DDQN training pipeline** — Gymnasium environment, Double DQN agent, experience replay, checkpointing, GPU support
 
 ---
@@ -54,7 +54,7 @@ city-car-simulator/
 │   └── functions.py            # Softmax, cosine similarity, bearing, weighted sum
 │
 ├── utils/
-│   ├── wave_utils.py           # RSRP, RSRQ, RSSI calculations
+│   ├── wave_utils.py           # RSRP, RSRQ, RSSI, path loss, shadow/fast fading calculations
 │   ├── location_utils.py       # Haversine distance, move_meters, coord comparison
 │   ├── path_gen.py             # SUMO traffic generation interface
 │   ├── map_downloader.py       # OSM map downloader (Overpass API) with bbox cache
@@ -111,7 +111,7 @@ This will:
 2. Fetch real LTE/NR towers from OpenCellID → cached to `cache/towers/` (skipped if bbox matches)
 3. Generate vehicle traffic using SUMO (netconvert → randomTrips → duarouter → simulation)
 
-### 3. Run Simulation (3GPP A3 Baseline)
+### 3. Run Simulation & Evaluation
 
 ```bash
 python test.py
@@ -120,10 +120,11 @@ python test.py
 This will:
 1. Load base stations from cached tower data
 2. Parse SUMO FCD traces for vehicle positions
-3. Run the handover simulation with 3GPP A3 logic
-4. Log per-UE RSRP/RSRQ metrics to TensorBoard
-5. Render an interactive map to `outputs/folium/simulation.html`
-6. Auto-launch TensorBoard for metric visualization
+3. Run the 3GPP A3 RSRP baseline simulation (if `TEST_A3_RSRP = True`)
+4. Run the DDQN handover simulation (if `TEST_DDQN = True`, requires a trained model at `outputs/final_ddqn_model.pth`)
+5. Log per-UE and system-level metrics (RSRP, RSRQ, handovers, ping-pongs, averages) to TensorBoard
+6. Render an interactive map to `outputs/folium/simulation.html`
+7. Auto-launch TensorBoard for side-by-side comparison of A3 vs DDQN runs
 
 ### 4. Train DDQN Agent
 
@@ -158,6 +159,8 @@ Simulation parameters are configured in `prepare.py` and `test.py`:
 | `STEP_LENGTH` | `0.3` | Simulation step length in seconds (300 ms) |
 | `SHOW_FOLIUM_OUTPUT` | `True` | Auto-open HTML output in browser (`test.py`) |
 | `SHOW_TENSORBOARD_OUTPUT` | `True` | Auto-launch TensorBoard (`test.py`) |
+| `TEST_A3_RSRP` | `True` | Run 3GPP A3 RSRP baseline simulation (`test.py`) |
+| `TEST_DDQN` | `True` | Run DDQN handover simulation (`test.py`) |
 
 ### Training Hyperparameters (`rl/ddqn_agent.py`)
 
@@ -300,7 +303,7 @@ The project includes a full DDQN training pipeline for learned handover optimiza
 - **Checkpoint Manager** (`rl/checkpoint_manager.py`) — saves/resumes training state (epoch, epsilon, networks, optimizer) with cross-device support
 - **Top-k Filtering** (`helpers/filters.py`) — selects the k best candidate towers by weighted RSRP/RSRQ score for the observation space
 - **Helper Functions** (`helpers/functions.py`) — softmax, cosine similarity, bearing calculation, and weighted sum used by the DDQN handover logic
-- **TensorBoard Logger** (`utils/logger.py`) — tracks per-UE signal metrics, episode reward, loss, Q-values, handovers, and ping-pong rate
+- **TensorBoard Logger** (`utils/logger.py`) — tracks per-UE metrics (RSRP, RSRQ, handovers, ping-pongs) and system-level metrics (averages, totals, ping-pong rate), plus training metrics (reward, loss, Q-values, epsilon)
 
 ### Reward Design
 
@@ -311,6 +314,40 @@ The reward uses a **counterfactual regret** framework — all signals are compar
 | Handover executed | `rsrp(new_tower) - rsrp(old_tower) + rsrq(new_tower) - rsrq(old_tower) - penalty` |
 | Stay on best tower | `0.0` (optimal — no regret) |
 | Stay on suboptimal tower | `(rsrp(current) - rsrp(best)) + (rsrq(current) - rsrq(best))` (negative regret) |
+
+---
+
+## TensorBoard Metrics
+
+### Per-UE Metrics (tagged `UE_{id}/`)
+| Metric | Description |
+|---|---|
+| `RSRP` | Serving cell RSRP (dBm) per timestep |
+| `RSRQ` | Serving cell RSRQ (dB) per timestep |
+| `TOTAL_HANDOVERS` | Cumulative handover count |
+| `TOTAL_PINGPONG` | Cumulative ping-pong count |
+| `PINGPONG_RATE` | Ping-pong / handover ratio |
+
+### System-Level Metrics (tagged `Performance/`)
+| Metric | Description |
+|---|---|
+| `AVERAGE_RSRP` | Mean RSRP across all active UEs |
+| `AVERAGE_RSRQ` | Mean RSRQ across all active UEs |
+| `TOTAL_HANDOVERS` | Sum of handovers across all UEs |
+| `AVERAGE_HANDOVERS` | Mean handovers per UE |
+| `TOTAL_PINGPONG` | Sum of ping-pongs across all UEs |
+| `AVERAGE_PINGPONG` | Mean ping-pongs per UE |
+| `PINGPONG_RATE` | Sum of per-UE ping-pong rates |
+| `AVERAGE_PINGPONG_RATE` | Mean ping-pong rate per UE |
+
+### Training Metrics (DDQN agent)
+| Metric | Description |
+|---|---|
+| `EPISODE_LENGTH` | Steps per training episode |
+| `TOTAL_REWARD` | Cumulative reward per episode |
+| `AVERAGE_MAX_Q` | Mean max Q-value per episode |
+| `AVERAGE_LOSS` | Mean Huber loss per episode |
+| `EPSILON` | Current exploration rate |
 
 ---
 
@@ -356,6 +393,20 @@ The reward uses a **counterfactual regret** framework — all signals are compar
 | `gymnasium` | RL environment interface |
 | `tensorboard` | Training and signal metric visualization |
 | SUMO | Traffic simulation engine (external) |
+
+---
+
+## System-Level Abstraction Notes
+
+This simulation is a **system-level abstraction** of the 5G NR physical layer, not a full PHY emulator. Key simplifying assumptions:
+
+| Aspect | 3GPP Reality | Our Abstraction | Justification |
+|---|---|---|---|
+| **LOS/NLOS** | Probability function based on distance | Hard 5 m cutoff | Simulates dense urban canyon where UEs are almost always NLOS |
+| **Antennas** | Massive MIMO with active beamforming | Static isotropic gain (`G_tx`) | Isolates handover algorithm evaluation from beam-tracking mechanics |
+| **Path Loss** | Dual-slope model with breakpoint distances | Standard log-distance model | Widely accepted balance of realism and computational efficiency for RL |
+
+See [sources.md](sources.md) for full technical references and justifications.
 
 ---
 
