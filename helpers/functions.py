@@ -1,4 +1,4 @@
-from math import exp
+from math import exp, cos
 
 
 class Functions:
@@ -19,3 +19,14 @@ class Functions:
             Functions.softmax(all_values=all_values, index=i)
             for i in range(len(all_values))
         ]
+
+    @staticmethod
+    def cos_similarity(angle1: float, angle2: float):
+        return cos(angle1 - angle2)
+
+    @staticmethod
+    def weighted_sum(values: list[float], weights: list[float]):
+        assert len(values) == len(weights), "values must be the same length as weights."
+        s = 0
+        for i in range(len(values)):
+            s += values[i] * weights[i]

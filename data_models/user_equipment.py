@@ -189,21 +189,23 @@ class UserEquipment:
         self.handover_algorithm = algorithm
 
     def check_handover_ddqn(self):
+        # Params
+        q_weight = 0.8
+        similarity_weight = 0.4
+        weights = [similarity_weight, q_weight]
         # return None if no reports are generated
         if not self.generated_reports:
             return None
-        # get latest report
+        # get latest report / timestep
         report = self.generated_reports[-1]
+        timestep = report.timestep
         # return best rsrp tower if no tower is connected
         if not self.serving_bs:
             best_bs_id = max(report.rsrp_values, key=report.rsrp_values.get)
             best_bs = next((bs for bs in self.all_bs if bs.id == best_bs_id), None)
             return best_bs
         # 1- Top-4 Filtering
-        top_4_towers = Filters.top_k_towers(
-            all_bs=self.all_bs,
-            report=report,
-        )
+        top_4_towers = Filters.top_k_towers(all_bs=self.all_bs, report=report, k=4)
         top_4_ids = [tower.id for tower in top_4_towers]
         top_4_rsrp = []
         top_4_rsrq = []
@@ -228,8 +230,26 @@ class UserEquipment:
         indexed.sort(key=lambda x: x[1], reverse=True)
         top_2 = indexed[:2]  # [(tower_idx, softmax_val), ...etc]
         # 5- Weighted Sum
+
+        # All angles are clockwise, 0 = north
+        angle_ue = ...
+        angle_tower1 = ...
+        angle_tower2 = ...
+
+        similarity_tower1 = Functions.cos_similarity(angle_ue, angle_tower1)
+        similarity_tower2 = Functions.cos_similarity(angle_ue, angle_tower2)
+
+        tower1_q = top_2[0][1]
+        tower2_q = top_2[1][1]
+
+        score_tower_1 = Functions.weighted_sum([similarity_tower1, tower1_q], weights)
+        score_tower_2 = Functions.weighted_sum([similarity_tower2, tower2_q], weights)
+
         # 6- Decision
-        ...
+        target_bs_idx = top_2[0][0] if score_tower_1 > score_tower_2 else top_2[1][0]
+        target_bs: BaseTower = top_4_towers[target_bs_idx]
+
+        return target_bs
 
     def check_handover_3gpp_rsrp(
         self,
