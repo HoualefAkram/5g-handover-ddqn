@@ -7,21 +7,24 @@ from typing import Optional
 
 class Logger:
     class Metric(Enum):
+        # Training
         EPISODE_LENGTH = "Episode_Length"
         TOTAL_REWARD = "Total_Reward"
         AVERAGE_MAX_Q = "Average_Max_Q"
         AVERAGE_LOSS = "Average_Loss"
+        EPSILON = "Epsilon"
+
+        # Test
         RSRP = "RSRP"
         RSRQ = "RSRQ"
         AVERAGE_RSRP = "AVERAGE_RSRP"
         AVERAGE_RSRQ = "AVERAGE_RSRQ"
-        EPSILON = "Epsilon"
-        TOTAL_HANDOVERS = "Total_Handovers"
-        AVERAGE_HANDOVERS = "Average_Handovers"
-        TOTAL_PINGPONG = "Total_Pingpong"
-        AVERAGE_PINGPONG = "Average_Pingpong"
-        PINGPONG_RATE = "Pingpong_Rate"
-        AVERAGE_PINGPONG_RATE = "Average_Pingpong_Rate"
+        TOTAL_HANDOVERS = "TOTAL_HANDOVERS"
+        AVERAGE_HANDOVERS = "AVERAGE_HANDOVERS"
+        TOTAL_PINGPONG = "TOTAL_PINGPONG"
+        AVERAGE_PINGPONG = "AVERAGE_PINGPONG"
+        PINGPONG_RATE = "PINGPONG_RATE"
+        AVERAGE_PINGPONG_RATE = "AVERAGE_PINGPONG_RATE"
 
     def __init__(self, name: Optional[str], logdir: str = "outputs/runs"):
         prefix = f"{name}_" if name is not None else ""
