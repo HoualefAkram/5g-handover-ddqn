@@ -15,7 +15,7 @@ This simulator models that process from first principles using real map data, re
 ## Features
 
 - **Real city maps** — downloads street maps from OpenStreetMap via Overpass API, cached locally to avoid redundant downloads
-- **Real tower data** — fetches live LTE/NR tower locations from OpenCellID, cached locally to avoid redundant API calls
+- **Real tower data** — downloads the full OpenCellID CSV database per MCC, filters LTE/NR towers within the simulation bbox, cached locally to avoid redundant downloads
 - **Realistic vehicle movement** — uses SUMO (Simulation of Urban Mobility) to generate traffic on actual streets
 - **3GPP-compliant signal model** — log-distance path loss, shadow fading (Gudmundson), fast fading (Rician/Rayleigh), RSRP, RSRQ, thermal noise
 - **3GPP A3 handover logic** — hysteresis-based handover decisions (2 dB margin) with Time-to-Trigger (TTT)
@@ -59,7 +59,7 @@ city-car-simulator/
 │   ├── path_gen.py             # SUMO traffic generation interface
 │   ├── map_downloader.py       # OSM map downloader (Overpass API) with bbox cache
 │   ├── osm_parser.py           # OSM file bounds parser
-│   ├── tower_downloader.py     # OpenCellID tower fetcher with bbox cache
+│   ├── tower_downloader.py     # OpenCellID CSV downloader with local bbox filtering and cache
 │   ├── render.py               # Folium map visualization
 │   ├── fcd_parser.py           # SUMO FCD XML parser
 │   └── logger.py               # TensorBoard logging (per-UE and global metrics)
@@ -107,8 +107,8 @@ python prepare.py
 ```
 
 This will:
-1. Download the London OSM street map → cached to `cache/maps/` (skipped if bbox matches)
-2. Fetch real LTE/NR towers from OpenCellID → cached to `cache/towers/` (skipped if bbox matches)
+1. Download the OSM street map for the configured area → cached to `cache/maps/` (skipped if bbox matches)
+2. Download the full OpenCellID CSV database for the configured MCC, then filter LTE/NR towers within the bbox → cached to `cache/towers/` (skipped if bbox matches)
 3. Generate vehicle traffic using SUMO (netconvert → randomTrips → duarouter → simulation)
 
 ### 3. Run Simulation & Evaluation
@@ -147,20 +147,21 @@ Set `USE_GPU = True` (default) in `rl/ddqn_agent.py` to train on CUDA if availab
 
 ## Configuration
 
-Simulation parameters are configured in `prepare.py` and `test.py`:
+Simulation parameters are configured in `prepare.py` and `test.py`. The default area is in the UK (near Milton Keynes):
 
 | Parameter | Default | Description |
 |---|---|---|
-| `MAP_TOP_LEFT` | `(51.519411, -0.148076)` | NW corner of simulation area (London) |
-| `MAP_BOTTOM_RIGHT` | `(51.499324, -0.109732)` | SE corner of simulation area |
+| `MAP_TOP_LEFT` | `(52.040089, -0.774654)` | NW corner of simulation area (UK) |
+| `MAP_BOTTOM_RIGHT` | `(52.035549, -0.735773)` | SE corner of simulation area |
 | `MCC` | `234` | Mobile Country Code (UK) |
-| `SEED` | `200` | Random seed for reproducible SUMO traffic |
+| `SEED` | `42` | Random seed for reproducible SUMO traffic |
 | `SIMULATION_TIME` | `300` | Simulation duration in seconds (5 minutes) |
-| `STEP_LENGTH` | `0.3` | Simulation step length in seconds (300 ms) |
+| `STEP_LENGTH` | `0.1` | Simulation step length in seconds (100 ms) |
+| `SPAWN_INTERVAL` | `5` | Vehicle spawn interval in seconds (SUMO randomTrips) |
 | `SHOW_FOLIUM_OUTPUT` | `True` | Auto-open HTML output in browser (`test.py`) |
 | `SHOW_TENSORBOARD_OUTPUT` | `True` | Auto-launch TensorBoard (`test.py`) |
 | `TEST_A3_RSRP` | `True` | Run 3GPP A3 RSRP baseline simulation (`test.py`) |
-| `TEST_DDQN` | `True` | Run DDQN handover simulation (`test.py`) |
+| `TEST_DDQN` | `False` | Run DDQN handover simulation (`test.py`) |
 
 ### Training Hyperparameters (`rl/ddqn_agent.py`)
 
@@ -174,7 +175,7 @@ Simulation parameters are configured in `prepare.py` and `test.py`:
 | `min_epsilon` | `0.05` | Minimum exploration rate |
 | `target_update_episodes` | `2` | Target network hard update interval (episodes) |
 | `train_every` | `20` | Backprop frequency (every N environment steps) |
-| `batch_size` | `256` | Replay buffer sample size |
+| `batch_size` | `64` | Replay buffer sample size |
 | `min_buffer_size` | `1000` | Minimum experiences before training starts |
 
 ---
