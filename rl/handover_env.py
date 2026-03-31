@@ -220,13 +220,18 @@ class HandoverEnv(gym.Env):
         self.steps = 0
         WaveUtils.reset_fading_state()
 
-        # Generate new randomized traffic scenario (quick_run has a random seed built in)
-        PathGeneration.quick_run(
-            skip_netconvert=True,
-            step_length=self.step_len,
-            simulation_time=self.simulation_time,
-        )
-        self.fcd_data = FcdParser.parse_fcd_trace()
+        # Generate new randomized traffic scenario, retry if agent car 0 has too few timesteps
+        min_agent_steps = 10
+        while True:
+            PathGeneration.quick_run(
+                skip_netconvert=True,
+                step_length=self.step_len,
+                simulation_time=self.simulation_time,
+            )
+            self.fcd_data = FcdParser.parse_fcd_trace()
+            agent_steps = sum(1 for frame in self.fcd_data if 0 in frame)
+            if agent_steps >= min_agent_steps:
+                break
         num_ue = FcdParser.count_vehicles()
 
         # Reinitialize UEs
