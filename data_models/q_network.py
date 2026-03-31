@@ -5,7 +5,7 @@ class QNetwork(nn.Module):
     def __init__(self):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(13, 256),
+            nn.Linear(14, 256),
             nn.GELU(),
             nn.Linear(256, 128),
             nn.GELU(),

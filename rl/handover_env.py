@@ -47,7 +47,7 @@ class HandoverEnv(gym.Env):
         # action space: choosing 1 of 4 BS
         self.action_space = Discrete(4)
         # observation Space
-        self.observation_space = Box(low=0.0, high=1.0, shape=(13,), dtype=np.float32)
+        self.observation_space = Box(low=0.0, high=1.0, shape=(14,), dtype=np.float32)
         self.step_len = step_len
         self.simulation_time = simulation_time
 
@@ -89,8 +89,11 @@ class HandoverEnv(gym.Env):
             serving_one_hot[serving_position] = 1
         # speed (normalized to [0, 1], assuming max ~30 m/s)
         norm_speed = min(self.agent.speed / 30.0, 1.0)
+        time_since_ho = self.agent.get_time_since_last_handover(
+            self.agent.generated_reports[-1].timestep
+        )
         obs = np.concatenate(
-            [rsrp_list, rsrq_list, serving_one_hot, [norm_speed]],
+            [rsrp_list, rsrq_list, serving_one_hot, [norm_speed], [time_since_ho]],
             dtype=np.float32,
         )
         return obs
@@ -102,21 +105,13 @@ class HandoverEnv(gym.Env):
         # NOTE: increase to reduce pingpong, reduce to improve RSRP/RSRQ
         base_penalty = 0.2
         cooldown_penalty = 0.3
-        min_time_of_stay = UserEquipment.min_time_of_stay
 
         # Dynamic penalty: higher if switching too soon after the last handover
-        handover_penalty = base_penalty
-        if len(self.agent.connection_history) >= 2:
-            _, last_handover_time = self.agent.connection_history[-1]
-            time_since = (
-                self.fcd_data[self.steps][self.agent.id].timestep - last_handover_time
-                if self.agent.id in self.fcd_data[self.steps]
-                else min_time_of_stay
-            )
-            if time_since < min_time_of_stay:
-                handover_penalty = base_penalty + cooldown_penalty * (
-                    1 - time_since / min_time_of_stay
-                )
+        current_fcd = self.fcd_data[self.steps]
+        current_timestep = current_fcd[self.agent.id].timestep if self.agent.id in current_fcd else 0.0
+        time_since_ho = self.agent.get_time_since_last_handover(current_timestep)
+        # time_since_ho is 0..1 where 0 = just switched, 1 = fully cooled down
+        handover_penalty = base_penalty + cooldown_penalty * (1 - time_since_ho)
 
         current_fcd_dict: dict[int, CarFcdData] = self.fcd_data[self.steps]
         if self.agent.id not in current_fcd_dict:

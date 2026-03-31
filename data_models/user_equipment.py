@@ -106,6 +106,13 @@ class UserEquipment:
 
         return total_pingpong / total_handovers
 
+    def get_time_since_last_handover(self, current_timestep: float) -> float:
+        """Returns time since last handover normalized to [0, 1], clamped at min_time_of_stay. Returns 1.0 if no handover has occurred."""
+        if len(self.connection_history) >= 2:
+            _, last_ho_time = self.connection_history[-1]
+            return min((current_timestep - last_ho_time) / self.min_time_of_stay, 1.0)
+        return 1.0
+
     def __on_movement(
         self,
         timestep: float,
@@ -269,8 +276,9 @@ class UserEquipment:
             serving_one_hot[serving_position] = 1
         # speed (normalized to [0, 1], assuming max ~30 m/s)
         norm_speed = min(self.speed / 30.0, 1.0)
+        time_since_ho = self.get_time_since_last_handover(report.timestep)
         state = np.concatenate(
-            [top_4_rsrp, top_4_rsrq, serving_one_hot, [norm_speed]],
+            [top_4_rsrp, top_4_rsrq, serving_one_hot, [norm_speed], [time_since_ho]],
             dtype=np.float32,
         )
         state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
