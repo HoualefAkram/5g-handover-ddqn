@@ -48,7 +48,7 @@ env = HandoverEnv(
     simulation_time=SIMULATION_TIME,
 )
 
-episodes = 1000
+episodes = 600
 lr = 5e-4
 decay_val = 0.99
 min_epsilon = 0.05

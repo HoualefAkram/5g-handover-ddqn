@@ -13,13 +13,13 @@ if TYPE_CHECKING:
 class WaveUtils:
     __c = 299_792_458.0  # speed of light
     __n_los = 2.0  # straight line between BS and UE
-    __n_nlos = 3.0  # buildings between BS and UE
+    __n_nlos = 3.5  # buildings between BS and UE, dense urban (Rappaport range 2.7–3.5)
     __los_threshold = 5  # 5 meters before there's an object blocking you
 
     # Shadow fading (log-normal): std dev in dB per environment
     __shadow_std_los = 4.0  # dB, typical urban LOS
-    __shadow_std_nlos = 7.82  # dB, 3GPP TR 38.901 Table 7.5-6 UMi-NLOS
-    __shadow_decorrelation_dist = 50.0  # meters, 3GPP decorrelation distance
+    __shadow_std_nlos = 8.03  # dB, 3GPP TR 38.901 Table 7.5-6 UMa-NLOS
+    __shadow_decorrelation_dist = 37.0  # meters, 3GPP TR 38.901 Table 7.6.3.1-2 UMa
 
     # Shadow fading state: keyed by (ue_id, bs_id) -> (last_position, last_shadow_value)
     __shadow_state: dict[tuple[int, int], tuple[LatLng, float]] = {}
@@ -109,8 +109,8 @@ class WaveUtils:
         rng = WaveUtils._get_link_rng(ue_id, bs_id)
 
         if is_los:
-            # Rician fading with K-factor = 9 dB (linear ~7.94), TR 38.901 Table 7.5-6
-            k_db = 9.0
+            # Rician fading with K-factor = 7 dB (linear ~5.01), TR 38.901 Table 7.5-6 UMa-LOS
+            k_db = 7.0
             k_lin = 10 ** (k_db / 10)
             # Rician envelope: dominant component + scattered
             # nu = sqrt(K / (K+1)), sigma = sqrt(1 / (2*(K+1)))
