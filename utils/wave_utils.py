@@ -17,9 +17,9 @@ class WaveUtils:
     __los_threshold = 5  # 5 meters before there's an object blocking you
 
     # Shadow fading (log-normal): std dev in dB per environment
-    __shadow_std_los = 4.0  # dB, typical urban LOS
-    __shadow_std_nlos = 8.03  # dB, 3GPP TR 38.901 Table 7.5-6 UMa-NLOS
-    __shadow_decorrelation_dist = 37.0  # meters, 3GPP TR 38.901 Table 7.6.3.1-2 UMa
+    __shadow_std_los = 6.0  # dB, 3GPP TR 38.901 Table 7.5-6 InH-Office LOS
+    __shadow_std_nlos = 8.93  # dB, 3GPP TR 38.901 Table 7.5-6 InH-Office NLOS
+    __shadow_decorrelation_dist = 10.0  # meters, 3GPP TR 38.901 Table 7.6.3.1-2 InH
 
     # Shadow fading state: keyed by (ue_id, bs_id) -> (last_position, last_shadow_value)
     __shadow_state: dict[tuple[int, int], tuple[LatLng, float]] = {}

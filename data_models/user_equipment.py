@@ -115,7 +115,10 @@ class UserEquipment:
 
     def get_normalized_time_since_last_handover(self, current_timestep: float) -> float:
         """Returns time since last handover normalized to [0, 1], clamped at min_time_of_stay. 0 = just switched, 1 = fully cooled down."""
-        return min(self.get_time_since_last_handover(current_timestep) / self.min_time_of_stay, 1.0)
+        return min(
+            self.get_time_since_last_handover(current_timestep) / self.min_time_of_stay,
+            1.0,
+        )
 
     def __on_movement(
         self,
@@ -144,7 +147,9 @@ class UserEquipment:
                     target_bs = self.check_handover_ddqn()
                 else:
                     serving_rsrp_index = report.rsrp_values.get(self.serving_bs.id, 0)
-                    a2_threshold = 61 if self.serving_bs.radio == "LTE" else 77  # -80 dBm
+                    a2_threshold = (
+                        61 if self.serving_bs.radio == "LTE" else 77
+                    )  # -80 dBm
                     if serving_rsrp_index < a2_threshold:
                         target_bs = self.check_handover_ddqn()
                     else:
@@ -332,7 +337,7 @@ class UserEquipment:
     def check_handover_3gpp_rsrp(
         self,
         hysteresis: float = 2.0,
-        time_to_trigger: float = 0.640,  # 640 ms
+        time_to_trigger: float = 0.320,  # 320 ms
     ) -> Optional[BaseTower]:
         """Checks if a handover is needed based on 3GPP RSRP criteria."""
         # If serving bs is null, connect to the best available option
