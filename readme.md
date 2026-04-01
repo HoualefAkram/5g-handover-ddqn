@@ -21,7 +21,7 @@ This simulator models that process from first principles using real map data, re
 - **3GPP A3 handover logic** — hysteresis-based handover decisions (2 dB margin) with Time-to-Trigger (TTT)
 - **Multi-UE support** — simulate multiple cars simultaneously
 - **Interactive map output** — Folium HTML visualization, auto-opened in browser
-- **TensorBoard logging** — per-UE and system-level metrics (RSRP, RSRQ, handovers, ping-pongs, averages) with auto-launch support
+- **TensorBoard logging** — per-UE and system-level metrics (RSRP, RSRQ, handovers, ping-pongs, RLF, handover delay) with auto-launch support
 - **DDQN training pipeline** — Gymnasium environment, Double DQN agent, experience replay, checkpointing, GPU support
 
 ---
@@ -285,6 +285,26 @@ RSRP(neighbor) > RSRP(serving) + hysteresis
 - Initial connection: UE automatically attaches to the strongest available tower
 - Decisions are evaluated at every simulation timestep
 
+### Radio Link Failure (RLF) Detection
+
+A simplified RSRP-based proxy for the 3GPP Qout mechanism. In the standard (TS 38.133 Section 8.1.1 for NR, TS 36.133 Section 7.6 for LTE), Qout is defined as 10% BLER of a hypothetical PDCCH — an SINR/BLER threshold, not RSRP. This simulator uses a per-RAT normalized RSRP threshold mapped to approximately **-116 dBm** as a practical cell-edge proxy:
+
+| RAT | Normalized Threshold | RSRP Equivalent |
+|---|---|---|
+| NR | `41/127 ≈ 0.323` | ≈ -116 dBm |
+| LTE | `25/97 ≈ 0.258` | ≈ -116 dBm |
+
+When the serving cell RSRP falls below the threshold at any timestep, the UE's RLF counter increments by 1.
+
+### Handover Interruption Time (DHO)
+
+Each handover adds a fixed interruption delay to the UE's accumulated handover delay cost (`dho_time`), based on 3GPP intra-frequency known-cell requirements:
+
+| RAT | Interruption Time | Source |
+|---|---|---|
+| NR | 20 ms | TS 38.133 Section 8.2.2 |
+| LTE | 40 ms | TS 36.133 Section 8.1.1.1 |
+
 ### Handover Algorithms
 
 | Algorithm | Status | Description |
@@ -347,6 +367,8 @@ This produces a penalty range of `0.2` (cooled down) to `0.5` (immediate re-swit
 | `TOTAL_HANDOVERS` | Cumulative handover count |
 | `TOTAL_PINGPONG` | Cumulative ping-pong count |
 | `PINGPONG_RATE` | Ping-pong / handover ratio |
+| `TOTAL_RLF` | Cumulative radio link failure count |
+| `TOTAL_DHO` | Cumulative handover interruption delay (seconds) |
 
 ### System-Level Metrics (tagged `Performance/`)
 | Metric | Description |
@@ -359,6 +381,10 @@ This produces a penalty range of `0.2` (cooled down) to `0.5` (immediate re-swit
 | `AVERAGE_PINGPONG` | Mean ping-pongs per UE |
 | `PINGPONG_RATE` | Sum of per-UE ping-pong rates |
 | `AVERAGE_PINGPONG_RATE` | Mean ping-pong rate per UE |
+| `TOTAL_RLF` | Sum of RLF events across all UEs |
+| `AVERAGE_RLF` | Mean RLF count per UE |
+| `TOTAL_DHO` | Sum of handover delay across all UEs (seconds) |
+| `AVERAGE_DHO` | Mean handover delay per UE (seconds) |
 
 ### Training Metrics (DDQN agent)
 | Metric | Description |
@@ -392,7 +418,7 @@ This produces a penalty range of `0.2` (cooled down) to `0.5` (immediate re-swit
 - [x] Experience replay with disk persistence
 - [x] Checkpoint save/resume
 - [x] GPU support (CUDA)
-- [x] Performance metrics (ping-pong rate, handover count)
+- [x] Performance metrics (ping-pong rate, handover count, RLF, handover delay)
 - [x] Shadow fading (Gudmundson correlated log-normal)
 - [x] Fast fading (Rician LOS / Rayleigh NLOS)
 - [x] Radio-specific BS parameters (LTE Band 3 / NR n78)
@@ -429,6 +455,8 @@ This simulation is a **system-level abstraction** of the 5G NR physical layer, n
 | **LOS/NLOS** | Probability function based on distance | Hard 5 m cutoff | Simulates dense urban canyon where UEs are almost always NLOS |
 | **Antennas** | Massive MIMO with active beamforming | Static isotropic gain (`G_tx`) | Isolates handover algorithm evaluation from beam-tracking mechanics |
 | **Path Loss** | Dual-slope model with breakpoint distances | Standard log-distance model | Widely accepted balance of realism and computational efficiency for RL |
+| **RLF detection** | SINR/BLER-based Qout with T310/N310/N311 timers | Single RSRP threshold per-RAT (≈ -116 dBm) | Captures cell-edge failure events without full L1/RRC timer state machine |
+| **Handover delay** | Variable interruption (search, SI acquisition, RACH) | Fixed per-RAT (NR: 20 ms, LTE: 40 ms) | Matches 3GPP intra-freq known-cell baseline from TS 38.133/36.133 |
 
 See [sources.md](sources.md) for full technical references and justifications.
 
@@ -439,6 +467,8 @@ See [sources.md](sources.md) for full technical references and justifications.
 - 3GPP TR 38.901 — Channel model for frequencies from 0.5 to 100 GHz (shadow/fast fading parameters)
 - 3GPP TS 36.104 — LTE Base Station radio transmission and reception (LTE power classes)
 - 3GPP TS 38.104 — NR Base Station radio transmission and reception (NR power classes)
+- 3GPP TS 38.133 — NR requirements for support of radio resource management (RLM Qout: Section 8.1.1, handover interruption: Section 8.2.2)
+- 3GPP TS 36.133 — LTE requirements for support of radio resource management (RLM Qout: Section 7.6, handover interruption: Section 8.1.1.1)
 - 3GPP TS 36.214 — LTE physical layer measurements (RSRP, RSRQ definitions)
 - Gudmundson, M. — *Correlation Model for Shadow Fading in Mobile Radio Systems* (1991)
 - Rappaport, T.S. — *Wireless Communications: Principles and Practice*
