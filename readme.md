@@ -168,7 +168,7 @@ Simulation parameters are configured in `prepare.py` and `test.py`. The default 
 | Parameter | Default | Description |
 |---|---|---|
 | `USE_GPU` | `True` | Use CUDA GPU if available, `False` to force CPU |
-| `episodes` | `1000` | Number of training episodes |
+| `episodes` | `600` | Number of training episodes |
 | `lr` | `5e-4` | Adam learning rate |
 | `gamma` | `0.97` | Discount factor |
 | `decay_val` | `0.99` | Epsilon decay multiplier per episode |
@@ -192,7 +192,7 @@ PL(d) = PL(d0) + 10·n·log10(d/d0)
 |---|---|---|
 | `d0` | 1 m | Reference distance |
 | `n` (LOS) | 2.0 | Path loss exponent — clear line of sight |
-| `n` (NLOS) | 3.0 | Path loss exponent — urban obstructions |
+| `n` (NLOS) | 3.5 | Path loss exponent — dense urban obstructions (Rappaport range 2.7–3.5) |
 | LOS threshold | 5 m | Distance under which LOS is assumed |
 
 ### RSRP
@@ -219,14 +219,14 @@ r = exp(-d_moved / d_corr)
 
 | Parameter | LOS | NLOS | Source |
 |---|---|---|---|
-| `sigma` | 4.0 dB | 7.82 dB | 3GPP TR 38.901 Table 7.5-6 |
-| `d_corr` | 50 m | 50 m | 3GPP decorrelation distance |
+| `sigma` | 6.0 dB | 8.93 dB | 3GPP TR 38.901 Table 7.5-6 InH-Office |
+| `d_corr` | 10 m | 10 m | 3GPP TR 38.901 Table 7.6.3.1-2 InH |
 
 ### Fast Fading
 
 | Condition | Model | K-factor | Source |
 |---|---|---|---|
-| LOS | Rician | 9 dB | 3GPP TR 38.901 Table 7.5-6 UMi-LOS |
+| LOS | Rician | 7 dB | 3GPP TR 38.901 Table 7.5-6 UMa-LOS |
 | NLOS | Rayleigh | - | No dominant path component |
 
 ### RSRQ
@@ -281,7 +281,7 @@ RSRP(neighbor) > RSRP(serving) + hysteresis
 ```
 
 - Default hysteresis: **2 dB**
-- Time-to-Trigger (TTT): **640 ms** — condition must hold for the last 640 ms of reports
+- Time-to-Trigger (TTT): **320 ms** — condition must hold for the last 320 ms of reports
 - Initial connection: UE automatically attaches to the strongest available tower
 - Decisions are evaluated at every simulation timestep
 
@@ -290,7 +290,7 @@ RSRP(neighbor) > RSRP(serving) + hysteresis
 | Algorithm | Status | Description |
 |---|---|---|
 | `A3_RSRP_3GPP` | Implemented | Standard 3GPP A3 event with hysteresis and TTT |
-| `DDQN_CHO` | Implemented | Deep Double Q-Network for learned handover optimization |
+| `DDQN_CHO` | Implemented | Deep Double Q-Network with A2 gate (evaluates only when serving RSRP < -80 dBm) |
 | `NONE` | — | No handover (stay on initial tower) |
 
 ---
