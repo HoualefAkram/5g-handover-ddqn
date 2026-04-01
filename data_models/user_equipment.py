@@ -20,9 +20,13 @@ class UserEquipment:
 
     min_time_of_stay: float = 2.5
     __model = None
-    # 0.25 roughly maps to -116 dBm, the industry standard cell-edge drop point. TS 38.133 mapping of Q (out): -116 dBm baseline
-    __rlf_threshold = 0.25
-    __handover_time = 0.05  # 50 ms
+    # Simplified RSRP proxy for Qout (TS 38.133 §8.1.1 / TS 36.133 §7.6).
+    # Real Qout is SINR/BLER-based (10 % BLER of hypothetical PDCCH).
+    # Normalized thresholds below map to ≈ −116 dBm for each RAT.
+    __rlf_threshold = {"NR": 41 / 127, "LTE": 25 / 97}
+    # Handover interruption time (seconds) per RAT, intra-freq known cell.
+    # NR: TS 38.133 §8.2.2 ≈ 20 ms   LTE: TS 36.133 §8.1.1.1 ≈ 40 ms
+    __handover_time = {"NR": 0.02, "LTE": 0.04}
 
     def __init__(
         self,
@@ -130,8 +134,8 @@ class UserEquipment:
             current_rsrp = WaveUtils.normalize_rsrp_index(
                 report.rsrp_values.get(self.serving_bs.id, 0), self.serving_bs.radio
             )
-            # If the normalized signal falls below ~ -116 dBm, log an RLF
-            if current_rsrp < self.__rlf_threshold:
+            threshold = self.__rlf_threshold.get(self.serving_bs.radio, 25 / 97)
+            if current_rsrp < threshold:
                 self.rlf_count += 1
 
     def __on_movement(
@@ -416,4 +420,4 @@ class UserEquipment:
         target_bs.add_ue(self)
         self.serving_bs = target_bs
         self.connection_history.append((target_bs.id, timestep))
-        self.dho_time += self.__handover_time
+        self.dho_time += self.__handover_time.get(target_bs.radio, 0.04)
