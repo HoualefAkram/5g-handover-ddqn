@@ -1,4 +1,4 @@
-# City Car Simulator — 5G Handover Simulation
+# 5G Handover DDQN — Learned Handover Optimization vs 3GPP A3 Baseline
 
 A Python-based simulator that models **User Equipment (UEs)** — cars — moving through a real city with real **Base Station Towers** fetched from OpenCellID. The simulator calculates real-time **RSRP** and **RSRQ** signal metrics using standard radio propagation models, implementing 3GPP A3 handover decision logic. Designed as a foundation for **AI / Reinforcement Learning** agents to optimize handover decisions in 5G networks.
 
