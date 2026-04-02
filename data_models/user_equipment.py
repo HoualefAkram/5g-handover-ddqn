@@ -172,7 +172,7 @@ class UserEquipment:
                 else:
                     serving_rsrp_index = report.rsrp_values.get(self.serving_bs.id, 0)
                     a2_threshold = (
-                        61 if self.serving_bs.radio == "LTE" else 77
+                        81 if self.serving_bs.radio == "LTE" else 97
                     )  # -80 dBm
                     if serving_rsrp_index < a2_threshold:
                         target_bs = self.check_handover_ddqn()
@@ -282,8 +282,8 @@ class UserEquipment:
 
     def check_handover_ddqn(self):
         # Params
-        q_weight = 0.8
-        similarity_weight = 0.4
+        q_weight = 0.1
+        similarity_weight = 0.01
         weights = [similarity_weight, q_weight]
         # return None if no reports are generated
         if not self.generated_reports:
