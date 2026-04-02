@@ -54,6 +54,8 @@ class UserEquipment:
         self.rlf_count = 0
         self.dho_time = 0
 
+        self.__in_rlf = False
+
     @classmethod
     def load_model(
         cls,
@@ -136,7 +138,11 @@ class UserEquipment:
             )
             threshold = self.__rlf_threshold.get(self.serving_bs.radio, 25 / 97)
             if current_rsrp < threshold:
-                self.rlf_count += 1
+                if not self.__in_rlf:
+                    self.rlf_count += 1
+                    self.__in_rlf = True
+            else:
+                self.__in_rlf = False
 
     def __on_movement(
         self,
