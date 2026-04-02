@@ -54,11 +54,24 @@ class HandoverEnv(gym.Env):
         self.steps = 0
 
     def _top_4_towers(self, report: NGRANReport):
-        return Filters.top_k_towers(
+        serving = self.agent.serving_bs
+        if serving is None:
+            return Filters.top_k_towers(
+                all_bs=self.base_towers,
+                report=report,
+                k=4,
+            )
+        # Top-3 candidates + guaranteed serving slot
+        top = Filters.top_k_towers(
             all_bs=self.base_towers,
             report=report,
             k=4,
         )
+        if serving in top:
+            return top
+        # Serving dropped out of top-4: replace the weakest candidate
+        top[-1] = serving
+        return top
 
     def _get_obs(self):
         # NOTE: obs is normalized
@@ -102,8 +115,8 @@ class HandoverEnv(gym.Env):
         """Execute the action Handover/No Handover then move all the cars once"""
         # Reset() guarantees current_top_4 is populated
         target_bs = self.current_top_4[action]
-        base_penalty = 0.2
-        cooldown_penalty = 0.3
+        base_penalty = 0.4
+        cooldown_penalty = 0.5
 
         # Dynamic penalty: higher if switching too soon after the last handover
         current_fcd = self.fcd_data[self.steps]
