@@ -23,7 +23,7 @@ class UserEquipment:
     # Simplified RSRP proxy for Qout (TS 38.133 §8.1.1 / TS 36.133 §7.6).
     # Real Qout is SINR/BLER-based (10 % BLER of hypothetical PDCCH).
     # Normalized thresholds below map to ≈ −116 dBm for each RAT.
-    __rlf_threshold = {"NR": 41 / 127, "LTE": 25 / 97}
+    rlf_threshold = {"NR": 41 / 127, "LTE": 25 / 97}
     # Handover interruption time (seconds) per RAT, intra-freq known cell.
     # NR: TS 38.133 §8.2.2 ≈ 20 ms   LTE: TS 36.133 §8.1.1.1 ≈ 40 ms
     __handover_time = {"NR": 0.02, "LTE": 0.04}
@@ -136,7 +136,7 @@ class UserEquipment:
             current_rsrp = WaveUtils.normalize_rsrp_index(
                 report.rsrp_values.get(self.serving_bs.id, 0), self.serving_bs.radio
             )
-            threshold = self.__rlf_threshold.get(self.serving_bs.radio, 25 / 97)
+            threshold = self.rlf_threshold.get(self.serving_bs.radio, 25 / 97)
             if current_rsrp < threshold:
                 if not self.__in_rlf:
                     self.rlf_count += 1
@@ -178,6 +178,8 @@ class UserEquipment:
                         target_bs = self.check_handover_ddqn()
                     else:
                         target_bs = None
+            case HandoverAlgorithm.DDQN:
+                target_bs = self.check_handover_ddqn_only()
             case HandoverAlgorithm.NONE:
                 return report
 
@@ -280,6 +282,55 @@ class UserEquipment:
     def set_handover_algorithm(self, algorithm: HandoverAlgorithm):
         self.handover_algorithm = algorithm
 
+    def check_handover_ddqn_only(self):
+        """Pure DDQN: top-4 filtering → build state → argmax Q-value → return target tower."""
+        if not self.generated_reports:
+            return None
+        report = self.generated_reports[-1]
+        if not self.serving_bs:
+            best_bs_id = max(report.rsrp_values, key=report.rsrp_values.get)
+            return next((bs for bs in self.all_bs if bs.id == best_bs_id), None)
+        # 1- Top-4 Filtering (with serving guarantee)
+        top_4_towers = Filters.top_k_towers(all_bs=self.all_bs, report=report, k=4)
+        if self.serving_bs not in top_4_towers:
+            top_4_towers[-1] = self.serving_bs
+        # 2- Build state (matches env obs space: rsrp, rsrp_trend, serving_one_hot, speed, time_since_ho)
+        top_4_rsrp = [
+            WaveUtils.normalize_rsrp_index(report.rsrp_values.get(bs.id, 0), bs.radio)
+            for bs in top_4_towers
+        ]
+        if len(self.generated_reports) >= 2:
+            prev_report = self.generated_reports[-2]
+            rsrp_trend = [
+                WaveUtils.normalize_rsrp_index(
+                    report.rsrp_values.get(bs.id, 0), bs.radio
+                )
+                - WaveUtils.normalize_rsrp_index(
+                    prev_report.rsrp_values.get(bs.id, 0), bs.radio
+                )
+                for bs in top_4_towers
+            ]
+        else:
+            rsrp_trend = [0.0, 0.0, 0.0, 0.0]
+        serving_one_hot = [0, 0, 0, 0]
+        if self.serving_bs in top_4_towers:
+            serving_one_hot[top_4_towers.index(self.serving_bs)] = 1
+        norm_speed = min(self.speed / 30.0, 1.0)
+        time_since_ho = self.get_normalized_time_since_last_handover(report.timestep)
+        state = np.concatenate(
+            [top_4_rsrp, rsrp_trend, serving_one_hot, [norm_speed], [time_since_ho]],
+            dtype=np.float32,
+        )
+        # 3- DDQN argmax
+        state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
+        with torch.no_grad():
+            q_vals = self.__model(state_tensor)[0]
+        action = q_vals.argmax().item()
+        target_bs = top_4_towers[action]
+        if target_bs == self.serving_bs:
+            return None
+        return target_bs
+
     def check_handover_ddqn(self):
         # Params
         q_weight = 0.1
@@ -334,7 +385,7 @@ class UserEquipment:
         indexed.sort(key=lambda x: x[1], reverse=True)
         top_2 = indexed[:2]  # [(tower_idx, softmax_val), ...etc]
         # 5- Weighted Sum
-        # All angles are clockwise, 0 = north, TODO: get angles
+        # All angles are clockwise, 0 = north
         angle_ue = self.angle
 
         tower1_idx, tower1_q = top_2[0]

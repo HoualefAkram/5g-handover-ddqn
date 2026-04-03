@@ -312,7 +312,7 @@ if __name__ == "__main__":
             bs.connected_ues.clear()
         WaveUtils.reset_fading_state()
 
-        ddqn_logger = Logger(logdir=LOGDIR, name="DDQN")
+        ddqn_logger = Logger(logdir=LOGDIR, name="DDQN_CHO")
         UserEquipment.load_model(
             map_location="cuda" if torch.cuda.is_available() else "cpu"
         )

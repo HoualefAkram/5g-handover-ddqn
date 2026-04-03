@@ -10,8 +10,6 @@ class Filters:
         all_bs: list[BaseTower],
         report: NGRANReport,
         k: int = 4,
-        rsrp_weight: float = 0.5,
-        rsrq_weight: float = 0.5,
     ):
 
         scores: dict[int, float] = {}
@@ -19,14 +17,9 @@ class Filters:
         for bs in all_bs:
             bs_id = bs.id
 
-            norm_rsrp = WaveUtils.normalize_rsrp_index(
+            scores[bs_id] = WaveUtils.normalize_rsrp_index(
                 report.rsrp_values.get(bs_id, 0), bs.radio
             )
-            norm_rsrq = WaveUtils.normalize_rsrq_index(
-                report.rsrq_values.get(bs_id, 0), bs.radio
-            )
-
-            scores[bs_id] = (norm_rsrp * rsrp_weight) + (norm_rsrq * rsrq_weight)
 
         sorted_scores = sorted(scores.items(), key=lambda item: item[1], reverse=True)
 
