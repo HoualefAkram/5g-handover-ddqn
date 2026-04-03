@@ -323,7 +323,7 @@ if __name__ == "__main__":
                 id=i,
                 all_bs=bs_list,
                 print_logs_on_movement=False,
-                handover_algorithm=HandoverAlgorithm.DDQN_CHO,
+                handover_algorithm=HandoverAlgorithm.DDQN,
             )
             for i in range(num_ue)
         }

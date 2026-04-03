@@ -119,11 +119,11 @@ class HandoverEnv(gym.Env):
         return obs
 
     def step(self, action):
+        # TODO: Increase CoolDown penalty, TODO 2: try deleting base penalty
         """Execute the action Handover/No Handover then move all the cars once"""
         # Reset() guarantees current_top_4 is populated
         target_bs = self.current_top_4[action]
-        base_penalty = 0.15
-        cooldown_penalty = 0.25
+        cooldown_penalty = 0.1
 
         # Dynamic penalty: higher if switching too soon after the last handover
         current_fcd = self.fcd_data[self.steps]
@@ -134,7 +134,7 @@ class HandoverEnv(gym.Env):
             current_timestep
         )
         # time_since_ho is 0..1 where 0 = just switched, 1 = fully cooled down
-        handover_penalty = base_penalty + cooldown_penalty * (1 - time_since_ho)
+        handover_penalty = cooldown_penalty * (1 - time_since_ho)
 
         current_fcd_dict: dict[int, CarFcdData] = self.fcd_data[self.steps]
         if self.agent.id not in current_fcd_dict:
@@ -205,16 +205,17 @@ class HandoverEnv(gym.Env):
                 delta_rsrp = rsrp_current - rsrp_stayed
                 reward = delta_rsrp - handover_penalty
             else:
-                # Temporal delta: how is the serving tower's signal changing over time?
-                rsrp_before = WaveUtils.normalize_rsrp_index(
-                    report_before.rsrp_values.get(tower_before_action.id, 0),
-                    tower_before_action.radio,
-                )
-                rsrp_after = WaveUtils.normalize_rsrp_index(
-                    report_after.rsrp_values.get(tower_before_action.id, 0),
-                    tower_before_action.radio,
-                )
-                reward = rsrp_after - rsrp_before
+                reward = 0
+                # # Temporal delta: how is the serving tower's signal changing over time?
+                # rsrp_before = WaveUtils.normalize_rsrp_index(
+                #     report_before.rsrp_values.get(tower_before_action.id, 0),
+                #     tower_before_action.radio,
+                # )
+                # rsrp_after = WaveUtils.normalize_rsrp_index(
+                #     report_after.rsrp_values.get(tower_before_action.id, 0),
+                #     tower_before_action.radio,
+                # )
+                # reward = rsrp_after - rsrp_before
 
         else:
             reward = 0.0
