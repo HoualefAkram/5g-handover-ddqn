@@ -23,6 +23,7 @@ FOLIUM_OUTPUT = "outputs/folium/simulation.html"
 LOGDIR = "outputs/runs"
 TEST_A3_RSRP = True
 TEST_DDQN = True
+SEED = 42
 SEED_COUNT = 10
 SIMULATION_TIME = 900
 STEP_LENGTH = 0.1
@@ -175,6 +176,11 @@ if __name__ == "__main__":
 
     all_results = {}
 
+    # Generate deterministic seeds from SEED
+    import random
+    rng = random.Random(SEED)
+    seeds = [rng.randint(0, 10000) for _ in range(SEED_COUNT)]
+
     # Performance loggers: aggregate avg/total across all seeds
     if TEST_A3_RSRP:
         a3_perf_logger = Logger(logdir=LOGDIR, name=f"PERF_A3_RSRP_LONDON_{timestamp}")
@@ -184,8 +190,8 @@ if __name__ == "__main__":
     seed_pad = len(str(SEED_COUNT))
 
     for seed_idx in range(SEED_COUNT):
-        seed = seed_idx + 1
-        seed_label = str(seed).zfill(seed_pad)
+        seed = seeds[seed_idx]
+        seed_label = str(seed_idx + 1).zfill(seed_pad)
         print()
         print(
             Fore.YELLOW
