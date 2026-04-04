@@ -123,7 +123,7 @@ class HandoverEnv(gym.Env):
         """Execute the action Handover/No Handover then move all the cars once"""
         # Reset() guarantees current_top_4 is populated
         target_bs = self.current_top_4[action]
-        cooldown_penalty = 0.2
+        cooldown_penalty = 0.35
 
         # Dynamic penalty: higher if switching too soon after the last handover
         current_fcd = self.fcd_data[self.steps]
@@ -233,7 +233,7 @@ class HandoverEnv(gym.Env):
                 tower_after_action.radio, 25 / 97
             )
             if serving_rsrp < rlf_threshold:
-                reward -= 1.0
+                reward -= 1.5
 
         self.steps += 1
         truncated = self.steps >= total_timesteps  # End of the SUMO trace
