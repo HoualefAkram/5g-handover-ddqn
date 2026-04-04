@@ -210,29 +210,12 @@ def simulation(
 
     print()
 
-    # Log global handover summary
-    last_timestep = FcdParser.last_timestep()
     global_total_handovers = sum(ue.get_total_handovers() for ue in cars.values())
     global_total_pingpong = sum(ue.get_total_pingpong() for ue in cars.values())
     global_pingpong_rate = (
         global_total_pingpong / global_total_handovers
         if global_total_handovers > 0
         else 0.0
-    )
-    logger.log_global_metric(
-        metric=Logger.Metric.TOTAL_HANDOVERS,
-        value=global_total_handovers,
-        step=last_timestep,
-    )
-    logger.log_global_metric(
-        metric=Logger.Metric.TOTAL_PINGPONG,
-        value=global_total_pingpong,
-        step=last_timestep,
-    )
-    logger.log_global_metric(
-        metric=Logger.Metric.PINGPONG_RATE,
-        value=global_pingpong_rate,
-        step=last_timestep,
     )
 
     for bs in bs_list:
