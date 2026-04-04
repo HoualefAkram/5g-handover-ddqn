@@ -88,37 +88,37 @@ def simulation(
             logger.log_ue_metric(
                 ue_index=car.id,
                 metric=Logger.Metric.RSRP,
-                step=car_data.timestep,
+                step=i,
                 value=rsrp,
             )
             logger.log_ue_metric(
                 ue_index=car.id,
                 metric=Logger.Metric.TOTAL_HANDOVERS,
-                step=car_data.timestep,
+                step=i,
                 value=car_handovers,
             )
             logger.log_ue_metric(
                 ue_index=car.id,
                 metric=Logger.Metric.TOTAL_PINGPONG,
-                step=car_data.timestep,
+                step=i,
                 value=car_pingpongs,
             )
             logger.log_ue_metric(
                 ue_index=car.id,
                 metric=Logger.Metric.PINGPONG_RATE,
-                step=car_data.timestep,
+                step=i,
                 value=car_pingpongs_rate,
             )
             logger.log_ue_metric(
                 ue_index=car.id,
                 metric=Logger.Metric.TOTAL_RLF,
-                step=car_data.timestep,
+                step=i,
                 value=car_rlf,
             )
             logger.log_ue_metric(
                 ue_index=car.id,
                 metric=Logger.Metric.TOTAL_DHO,
-                step=car_data.timestep,
+                step=i,
                 value=car_dho_time,
             )
 

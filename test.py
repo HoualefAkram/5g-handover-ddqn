@@ -91,45 +91,45 @@ def simulation(
                     logger.log_ue_metric(
                         ue_index=car.id,
                         metric=Logger.Metric.RSRP,
-                        step=car_data.timestep,
+                        step=i,
                         value=rsrp,
                     )
                     logger.log_ue_metric(
                         ue_index=car.id,
                         metric=Logger.Metric.RSRQ,
-                        step=car_data.timestep,
+                        step=i,
                         value=rsrq,
                     )
 
                     logger.log_ue_metric(
                         ue_index=car.id,
                         metric=Logger.Metric.TOTAL_HANDOVERS,
-                        step=car_data.timestep,
+                        step=i,
                         value=car_handovers,
                     )
                     logger.log_ue_metric(
                         ue_index=car.id,
                         metric=Logger.Metric.TOTAL_PINGPONG,
-                        step=car_data.timestep,
+                        step=i,
                         value=car_pingpongs,
                     )
                     logger.log_ue_metric(
                         ue_index=car.id,
                         metric=Logger.Metric.PINGPONG_RATE,
-                        step=car_data.timestep,
+                        step=i,
                         value=car_pingpongs_rate,
                     )
 
                     logger.log_ue_metric(
                         ue_index=car.id,
                         metric=Logger.Metric.TOTAL_RLF,
-                        step=car_data.timestep,
+                        step=i,
                         value=car_rlf,
                     )
                     logger.log_ue_metric(
                         ue_index=car.id,
                         metric=Logger.Metric.TOTAL_DHO,
-                        step=car_data.timestep,
+                        step=i,
                         value=car_dho_time,
                     )
 
@@ -147,66 +147,65 @@ def simulation(
         avg_dho = cars_dho / car_counter if car_counter > 0 else 0.0
         if not fcd:
             continue
-        current_step = list(fcd.values())[0].timestep
         logger.log_global_metric(
             metric=Logger.Metric.AVERAGE_RSRP,
             value=avg_rsrp,
-            step=current_step,
+            step=i,
         )
         logger.log_global_metric(
             metric=Logger.Metric.AVERAGE_RSRQ,
             value=avg_rsrq,
-            step=current_step,
+            step=i,
         )
         logger.log_global_metric(
             metric=Logger.Metric.TOTAL_HANDOVERS,
             value=handovers,
-            step=current_step,
+            step=i,
         )
         logger.log_global_metric(
             metric=Logger.Metric.AVERAGE_HANDOVERS,
             value=avg_handovers,
-            step=current_step,
+            step=i,
         )
         logger.log_global_metric(
             metric=Logger.Metric.TOTAL_PINGPONG,
             value=pingpongs,
-            step=current_step,
+            step=i,
         )
         logger.log_global_metric(
             metric=Logger.Metric.AVERAGE_PINGPONG,
             value=avg_pingpongs,
-            step=current_step,
+            step=i,
         )
         logger.log_global_metric(
             metric=Logger.Metric.PINGPONG_RATE,
             value=pingpongs_rate,
-            step=current_step,
+            step=i,
         )
         logger.log_global_metric(
             metric=Logger.Metric.AVERAGE_PINGPONG_RATE,
             value=avg_pingpong_rate,
-            step=current_step,
+            step=i,
         )
         logger.log_global_metric(
             metric=Logger.Metric.TOTAL_RLF,
             value=cars_rlf,
-            step=current_step,
+            step=i,
         )
         logger.log_global_metric(
             metric=Logger.Metric.AVERAGE_RLF,
             value=avg_rlf,
-            step=current_step,
+            step=i,
         )
         logger.log_global_metric(
             metric=Logger.Metric.TOTAL_DHO,
             value=cars_dho,
-            step=current_step,
+            step=i,
         )
         logger.log_global_metric(
             metric=Logger.Metric.AVERAGE_DHO,
             value=avg_dho,
-            step=current_step,
+            step=i,
         )
 
     print()
