@@ -70,7 +70,10 @@ def simulation(
                 )
 
                 if car.serving_bs:
-                    rsrp = report.rsrp_values.get(car.serving_bs.id, 0)
+                    rsrp = WaveUtils.normalize_rsrp_index(
+                        rsrp_index=report.rsrp_values.get(car.serving_bs.id, 0),
+                        radio_type=car.serving_bs.radio,
+                    )
                     rsrq = report.rsrq_values.get(car.serving_bs.id, 0)
                     car_handovers = car.get_total_handovers()
                     car_pingpongs = car.get_total_pingpong()
