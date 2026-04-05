@@ -123,7 +123,7 @@ class HandoverEnv(gym.Env):
         """Execute the action Handover/No Handover then move all the cars once"""
         # Reset() guarantees current_top_4 is populated
         target_bs = self.current_top_4[action]
-        cooldown_penalty = 0.35
+        cooldown_penalty = 0.5
 
         # Dynamic penalty: higher if switching too soon after the last handover
         current_fcd = self.fcd_data[self.steps]
@@ -150,7 +150,7 @@ class HandoverEnv(gym.Env):
                     "timestep": self.steps,
                     "total_timesteps": total_timesteps,
                     "info": "Agent vehicle reached destination.",
-                }, 
+                },
             )
 
         timestep = current_fcd_dict[self.agent.id].timestep

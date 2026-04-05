@@ -128,21 +128,16 @@ def simulation(
                 value=car_dho_time,
             )
 
-
     print()
 
     # Log final summary
     total_handovers = car.get_total_handovers()
     total_pingpong = car.get_total_pingpong()
-    pingpong_rate = (
-        total_pingpong / total_handovers if total_handovers > 0 else 0.0
-    )
+    pingpong_rate = total_pingpong / total_handovers if total_handovers > 0 else 0.0
 
     print(Fore.RED + Style.BRIGHT + f"  Handovers: {total_handovers}")
     print(Fore.RED + Style.BRIGHT + f"  Ping Pongs: {total_pingpong}")
-    print(
-        Fore.RED + Style.BRIGHT + f"  Ping Pong rate: {pingpong_rate * 100:.2f}%"
-    )
+    print(Fore.RED + Style.BRIGHT + f"  Ping Pong rate: {pingpong_rate * 100:.2f}%")
 
     return {
         "handovers": total_handovers,
@@ -184,6 +179,7 @@ if __name__ == "__main__":
 
     # Generate deterministic seeds from SEED
     import random
+
     rng = random.Random(SEED)
     seeds = [rng.randint(0, 10000) for _ in range(SEED_COUNT)]
 
@@ -199,21 +195,13 @@ if __name__ == "__main__":
         seed = seeds[seed_idx]
         seed_label = str(seed_idx + 1).zfill(seed_pad)
         print()
-        print(
-            Fore.YELLOW
-            + Style.BRIGHT
-            + f"{'='*60}"
-        )
+        print(Fore.YELLOW + Style.BRIGHT + f"{'='*60}")
         print(
             Fore.YELLOW
             + Style.BRIGHT
             + f"  Iteration {seed_idx + 1}/{SEED_COUNT} — SEED {seed}"
         )
-        print(
-            Fore.YELLOW
-            + Style.BRIGHT
-            + f"{'='*60}"
-        )
+        print(Fore.YELLOW + Style.BRIGHT + f"{'='*60}")
 
         # Generate new route with this seed
         generate_trace(seed)
@@ -235,11 +223,7 @@ if __name__ == "__main__":
                 handover_algorithm=HandoverAlgorithm.A3_RSRP_3GPP,
             )
 
-            print(
-                Fore.CYAN
-                + Style.BRIGHT
-                + f"  [{run_name}] Simulating A3 RSRP..."
-            )
+            print(Fore.CYAN + Style.BRIGHT + f"  [{run_name}] Simulating A3 RSRP...")
 
             result = simulation(
                 bs_list=bs_list,
@@ -269,11 +253,7 @@ if __name__ == "__main__":
                 handover_algorithm=HandoverAlgorithm.DDQN,
             )
 
-            print(
-                Fore.CYAN
-                + Style.BRIGHT
-                + f"  [{run_name}] Simulating DDQN..."
-            )
+            print(Fore.CYAN + Style.BRIGHT + f"  [{run_name}] Simulating DDQN...")
 
             result = simulation(
                 bs_list=bs_list,
@@ -296,36 +276,74 @@ if __name__ == "__main__":
         completed_seeds = step
 
         if TEST_A3_RSRP and "A3_RSRP" in iteration_results:
-            a3_vals = [all_results[s]["A3_RSRP"] for s in all_results if "A3_RSRP" in all_results[s]]
+            a3_vals = [
+                all_results[s]["A3_RSRP"]
+                for s in all_results
+                if "A3_RSRP" in all_results[s]
+            ]
             total_ho = sum(v["handovers"] for v in a3_vals)
             total_pp = sum(v["pingpongs"] for v in a3_vals)
             total_rlf = sum(v["rlf"] for v in a3_vals)
             total_dho = sum(v["dho"] for v in a3_vals)
-            a3_perf_logger.log_global_metric(Logger.Metric.TOTAL_HANDOVERS, total_ho, step)
-            a3_perf_logger.log_global_metric(Logger.Metric.AVERAGE_HANDOVERS, total_ho / completed_seeds, step)
-            a3_perf_logger.log_global_metric(Logger.Metric.TOTAL_PINGPONG, total_pp, step)
-            a3_perf_logger.log_global_metric(Logger.Metric.AVERAGE_PINGPONG, total_pp / completed_seeds, step)
-            a3_perf_logger.log_global_metric(Logger.Metric.PINGPONG_RATE, total_pp / total_ho if total_ho > 0 else 0, step)
+            a3_perf_logger.log_global_metric(
+                Logger.Metric.TOTAL_HANDOVERS, total_ho, step
+            )
+            a3_perf_logger.log_global_metric(
+                Logger.Metric.AVERAGE_HANDOVERS, total_ho / completed_seeds, step
+            )
+            a3_perf_logger.log_global_metric(
+                Logger.Metric.TOTAL_PINGPONG, total_pp, step
+            )
+            a3_perf_logger.log_global_metric(
+                Logger.Metric.AVERAGE_PINGPONG, total_pp / completed_seeds, step
+            )
+            a3_perf_logger.log_global_metric(
+                Logger.Metric.PINGPONG_RATE,
+                total_pp / total_ho if total_ho > 0 else 0,
+                step,
+            )
             a3_perf_logger.log_global_metric(Logger.Metric.TOTAL_RLF, total_rlf, step)
-            a3_perf_logger.log_global_metric(Logger.Metric.AVERAGE_RLF, total_rlf / completed_seeds, step)
+            a3_perf_logger.log_global_metric(
+                Logger.Metric.AVERAGE_RLF, total_rlf / completed_seeds, step
+            )
             a3_perf_logger.log_global_metric(Logger.Metric.TOTAL_DHO, total_dho, step)
-            a3_perf_logger.log_global_metric(Logger.Metric.AVERAGE_DHO, total_dho / completed_seeds, step)
+            a3_perf_logger.log_global_metric(
+                Logger.Metric.AVERAGE_DHO, total_dho / completed_seeds, step
+            )
 
         if TEST_DDQN and "DDQN" in iteration_results:
-            ddqn_vals = [all_results[s]["DDQN"] for s in all_results if "DDQN" in all_results[s]]
+            ddqn_vals = [
+                all_results[s]["DDQN"] for s in all_results if "DDQN" in all_results[s]
+            ]
             total_ho = sum(v["handovers"] for v in ddqn_vals)
             total_pp = sum(v["pingpongs"] for v in ddqn_vals)
             total_rlf = sum(v["rlf"] for v in ddqn_vals)
             total_dho = sum(v["dho"] for v in ddqn_vals)
-            ddqn_perf_logger.log_global_metric(Logger.Metric.TOTAL_HANDOVERS, total_ho, step)
-            ddqn_perf_logger.log_global_metric(Logger.Metric.AVERAGE_HANDOVERS, total_ho / completed_seeds, step)
-            ddqn_perf_logger.log_global_metric(Logger.Metric.TOTAL_PINGPONG, total_pp, step)
-            ddqn_perf_logger.log_global_metric(Logger.Metric.AVERAGE_PINGPONG, total_pp / completed_seeds, step)
-            ddqn_perf_logger.log_global_metric(Logger.Metric.PINGPONG_RATE, total_pp / total_ho if total_ho > 0 else 0, step)
+            ddqn_perf_logger.log_global_metric(
+                Logger.Metric.TOTAL_HANDOVERS, total_ho, step
+            )
+            ddqn_perf_logger.log_global_metric(
+                Logger.Metric.AVERAGE_HANDOVERS, total_ho / completed_seeds, step
+            )
+            ddqn_perf_logger.log_global_metric(
+                Logger.Metric.TOTAL_PINGPONG, total_pp, step
+            )
+            ddqn_perf_logger.log_global_metric(
+                Logger.Metric.AVERAGE_PINGPONG, total_pp / completed_seeds, step
+            )
+            ddqn_perf_logger.log_global_metric(
+                Logger.Metric.PINGPONG_RATE,
+                total_pp / total_ho if total_ho > 0 else 0,
+                step,
+            )
             ddqn_perf_logger.log_global_metric(Logger.Metric.TOTAL_RLF, total_rlf, step)
-            ddqn_perf_logger.log_global_metric(Logger.Metric.AVERAGE_RLF, total_rlf / completed_seeds, step)
+            ddqn_perf_logger.log_global_metric(
+                Logger.Metric.AVERAGE_RLF, total_rlf / completed_seeds, step
+            )
             ddqn_perf_logger.log_global_metric(Logger.Metric.TOTAL_DHO, total_dho, step)
-            ddqn_perf_logger.log_global_metric(Logger.Metric.AVERAGE_DHO, total_dho / completed_seeds, step)
+            ddqn_perf_logger.log_global_metric(
+                Logger.Metric.AVERAGE_DHO, total_dho / completed_seeds, step
+            )
 
     # Log average RSRP per step across all seeds
     from collections import defaultdict
@@ -348,7 +366,9 @@ if __name__ == "__main__":
                     ddqn_rsrp_by_step[step].append(rsrp)
         for step in sorted(ddqn_rsrp_by_step):
             avg_rsrp = sum(ddqn_rsrp_by_step[step]) / len(ddqn_rsrp_by_step[step])
-            ddqn_perf_logger.log_global_metric(Logger.Metric.AVERAGE_RSRP, avg_rsrp, step)
+            ddqn_perf_logger.log_global_metric(
+                Logger.Metric.AVERAGE_RSRP, avg_rsrp, step
+            )
 
     # Close performance loggers
     if TEST_A3_RSRP:
@@ -392,7 +412,11 @@ if __name__ == "__main__":
         avg_pp = a3_totals["pingpongs"] / SEED_COUNT
         avg_rlf = a3_totals["rlf"] / SEED_COUNT
         avg_dho = a3_totals["dho"] / SEED_COUNT
-        pp_rate = a3_totals["pingpongs"] / a3_totals["handovers"] if a3_totals["handovers"] > 0 else 0
+        pp_rate = (
+            a3_totals["pingpongs"] / a3_totals["handovers"]
+            if a3_totals["handovers"] > 0
+            else 0
+        )
         print(
             Fore.MAGENTA
             + Style.BRIGHT
@@ -404,7 +428,11 @@ if __name__ == "__main__":
         avg_pp = ddqn_totals["pingpongs"] / SEED_COUNT
         avg_rlf = ddqn_totals["rlf"] / SEED_COUNT
         avg_dho = ddqn_totals["dho"] / SEED_COUNT
-        pp_rate = ddqn_totals["pingpongs"] / ddqn_totals["handovers"] if ddqn_totals["handovers"] > 0 else 0
+        pp_rate = (
+            ddqn_totals["pingpongs"] / ddqn_totals["handovers"]
+            if ddqn_totals["handovers"] > 0
+            else 0
+        )
         print(
             Fore.CYAN
             + Style.BRIGHT
