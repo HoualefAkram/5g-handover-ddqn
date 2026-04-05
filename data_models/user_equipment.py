@@ -411,8 +411,8 @@ class UserEquipment:
 
     def check_handover_3gpp_rsrp(
         self,
-        hysteresis: float = 3.0,
-        time_to_trigger: float = 0.320,  # 320 ms
+        hysteresis: float = 2.0,
+        time_to_trigger: float = 0.160,  # 160 ms
     ) -> Optional[BaseTower]:
         """Checks if a handover is needed based on 3GPP RSRP criteria.
         Comparison is done in dBm for fair inter-RAT evaluation."""
