@@ -18,7 +18,7 @@ from utils.logger import Logger
 
 SHOW_TENSORBOARD_OUTPUT = True
 LOGDIR = "outputs/runs"
-SEED = 42
+SEED = 1
 SIMULATION_TIME = 900
 STEP_LENGTH = 0.1
 
@@ -142,11 +142,7 @@ if __name__ == "__main__":
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    print(
-        Fore.CYAN
-        + Style.BRIGHT
-        + f"--- Starting CHO Test (SEED {SEED}) ---"
-    )
+    print(Fore.CYAN + Style.BRIGHT + f"--- Starting CHO Test (SEED {SEED}) ---")
     print(Fore.YELLOW + f"  Q weight: {Q_WEIGHT} (fixed)")
     print(Fore.YELLOW + f"  Similarity weights: {SIMILARITY_WEIGHTS}")
 
@@ -254,8 +250,7 @@ if __name__ == "__main__":
         pp_rate = data["pingpong_rate"] * 100
         color = Fore.MAGENTA if label == "DDQN" else Fore.CYAN
         print(
-            color
-            + f"{label:<16} | {data['handovers']:>10} | "
+            color + f"{label:<16} | {data['handovers']:>10} | "
             f"{data['pingpongs']:>10} | {pp_rate:>9.1f}% | "
             f"{data['rlf']:>6} | {data['dho']:>8.2f}"
         )

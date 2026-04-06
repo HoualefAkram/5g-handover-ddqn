@@ -331,58 +331,53 @@ class UserEquipment:
         similarity_weight: float = 0.01,
         q_weight: float = 0.1,
     ):
+        """DDQN + cosine similarity tiebreaker. State matches check_handover_ddqn_only."""
         weights = [similarity_weight, q_weight]
-        # return None if no reports are generated
         if not self.generated_reports:
             return None
-        # get latest report
         report = self.generated_reports[-1]
-        # return best rsrp tower if no tower is connected
         if not self.serving_bs:
             best_bs_id = max(report.rsrp_values, key=report.rsrp_values.get)
-            best_bs = next((bs for bs in self.all_bs if bs.id == best_bs_id), None)
-            return best_bs
-        # 1- Top-4 Filtering
+            return next((bs for bs in self.all_bs if bs.id == best_bs_id), None)
+        # 1- Top-4 Filtering (with serving guarantee)
         top_4_towers = Filters.top_k_towers(all_bs=self.all_bs, report=report, k=4)
-        top_4_rsrp = []
-        top_4_rsrq = []
-        for bs in top_4_towers:
-            top_4_rsrp.append(
+        if self.serving_bs not in top_4_towers:
+            top_4_towers[-1] = self.serving_bs
+        # 2- Build state (matches env obs space: rsrp, rsrp_trend, serving_one_hot, speed, time_since_ho)
+        top_4_rsrp = [
+            WaveUtils.normalize_rsrp_index(report.rsrp_values.get(bs.id, 0), bs.radio)
+            for bs in top_4_towers
+        ]
+        if len(self.generated_reports) >= 2:
+            prev_report = self.generated_reports[-2]
+            rsrp_trend = [
                 WaveUtils.normalize_rsrp_index(
-                    rsrp_index=report.rsrp_values.get(bs.id, 0),
-                    radio_type=bs.radio,
+                    report.rsrp_values.get(bs.id, 0), bs.radio
                 )
-            )
-            top_4_rsrq.append(
-                WaveUtils.normalize_rsrq_index(
-                    rsrq_index=report.rsrq_values.get(bs.id, 0),
-                    radio_type=bs.radio,
+                - WaveUtils.normalize_rsrp_index(
+                    prev_report.rsrp_values.get(bs.id, 0), bs.radio
                 )
-            )
-        # 2- DDQN
+                for bs in top_4_towers
+            ]
+        else:
+            rsrp_trend = [0.0, 0.0, 0.0, 0.0]
         serving_one_hot = [0, 0, 0, 0]
         if self.serving_bs in top_4_towers:
-            serving_position = top_4_towers.index(self.serving_bs)
-            serving_one_hot[serving_position] = 1
-        # speed (normalized to [0, 1], assuming max ~30 m/s)
+            serving_one_hot[top_4_towers.index(self.serving_bs)] = 1
         norm_speed = min(self.speed / 30.0, 1.0)
         time_since_ho = self.get_normalized_time_since_last_handover(report.timestep)
         state = np.concatenate(
-            [top_4_rsrp, top_4_rsrq, serving_one_hot, [norm_speed], [time_since_ho]],
+            [top_4_rsrp, rsrp_trend, serving_one_hot, [norm_speed], [time_since_ho]],
             dtype=np.float32,
         )
+        # 3- DDQN raw Q-values
         state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
         with torch.no_grad():
             q_vals = [q.item() for q in self.__model(state_tensor)[0]]
-        # 3- Softmax
-        q_vals_softmax: list[float] = Functions.softmax_all(all_values=q_vals)
-        # 4- Top 2
-        indexed = list(enumerate(q_vals_softmax))
+        # 4- Top 2 by raw Q-value
+        indexed = list(enumerate(q_vals))
         indexed.sort(key=lambda x: x[1], reverse=True)
-        top_2 = indexed[:2]  # [(tower_idx, softmax_val), ...etc]
-        # 5- Weighted Sum
-        # All angles are clockwise, 0 = north
-        angle_ue = self.angle
+        top_2 = indexed[:2]
 
         tower1_idx, tower1_q = top_2[0]
         tower2_idx, tower2_q = top_2[1]
@@ -390,11 +385,14 @@ class UserEquipment:
         tower1 = top_4_towers[tower1_idx]
         tower2 = top_4_towers[tower2_idx]
 
-        angle_tower1 = Functions.bearing(pointA=self.latlng, pointB=tower1.latlng)
-        angle_tower2 = Functions.bearing(pointA=self.latlng, pointB=tower2.latlng)
-
-        similarity_tower1 = Functions.cos_similarity(angle_ue, angle_tower1)
-        similarity_tower2 = Functions.cos_similarity(angle_ue, angle_tower2)
+        # 5- Cosine similarity tiebreaker
+        angle_ue = self.angle
+        similarity_tower1 = Functions.cos_similarity(
+            angle_ue, Functions.bearing(pointA=self.latlng, pointB=tower1.latlng)
+        )
+        similarity_tower2 = Functions.cos_similarity(
+            angle_ue, Functions.bearing(pointA=self.latlng, pointB=tower2.latlng)
+        )
 
         score_tower_1 = Functions.weighted_sum([similarity_tower1, tower1_q], weights)
         score_tower_2 = Functions.weighted_sum([similarity_tower2, tower2_q], weights)
@@ -405,7 +403,6 @@ class UserEquipment:
 
         if target_bs == self.serving_bs:
             return None
-
         return target_bs
 
     def check_handover_3gpp_rsrp(
