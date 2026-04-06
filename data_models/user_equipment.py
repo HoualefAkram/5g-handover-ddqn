@@ -165,19 +165,7 @@ class UserEquipment:
             case HandoverAlgorithm.A3_RSRP_3GPP:
                 target_bs = self.check_handover_3gpp_rsrp()
             case HandoverAlgorithm.DDQN_CHO:
-                # A2 gate: only evaluate DDQN when serving RSRP drops below -80 dBm (Good/Medium boundary)
-                # Gives the agent room to act before signal becomes unusable
-                if self.serving_bs is None:
-                    target_bs = self.check_handover_ddqn()
-                else:
-                    serving_rsrp_index = report.rsrp_values.get(self.serving_bs.id, 0)
-                    a2_threshold = (
-                        81 if self.serving_bs.radio == "LTE" else 97
-                    )  # -80 dBm
-                    if serving_rsrp_index < a2_threshold:
-                        target_bs = self.check_handover_ddqn()
-                    else:
-                        target_bs = None
+                target_bs = self.check_handover_ddqn()
             case HandoverAlgorithm.DDQN:
                 target_bs = self.check_handover_ddqn_only()
             case HandoverAlgorithm.NONE:
