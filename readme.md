@@ -1,6 +1,6 @@
 # 5G Handover DDQN — Learned Handover Optimization vs 3GPP A3 Baseline
 
-A Python-based simulator that models **User Equipment (UEs)** — cars — moving through a real city with real **Base Station Towers** fetched from OpenCellID. The simulator calculates real-time **RSRP** and **RSRQ** signal metrics using standard radio propagation models, implementing 3GPP A3 handover decision logic. Designed as a foundation for **AI / Reinforcement Learning** agents to optimize handover decisions in 5G networks.
+A Python-based simulator that models **User Equipment (UEs)** — cars — moving through a real city with real **Base Station Towers** fetched from OpenCellID. The simulator calculates real-time **RSRP** and **RSRQ** signal metrics using standard radio propagation models and compares a **3GPP A3 handover baseline** against a **trained Double DQN agent** for optimized handover decisions in 5G networks.
 
 ---
 
@@ -72,7 +72,8 @@ This simulator models that process from first principles using real map data, re
 │
 ├── cache/
 │   ├── maps/                   # Cached OSM map files
-│   └── towers/                 # Cached tower JSON data
+│   ├── towers/                 # Cached tower JSON data
+│   └── training/               # Model checkpoints & replay buffer
 │
 ├── outputs/
 │   ├── sumo/                   # SUMO network, routes, FCD traces
@@ -146,6 +147,13 @@ This will:
 Set `USE_GPU = True` (default) in `rl/ddqn_agent.py` to train on CUDA if available, or `False` to force CPU.
 
 > **Note:** The replay buffer (`cache/training/replay_buffer.pkl`) and checkpoint (`cache/training/ddqn_checkpoint.pth`) persist across runs for seamless resume. If you change the environment config (map, towers, observation shape), delete `cache/training/` before retraining to avoid stale data.
+
+### 5. Alternative Test Runners
+
+```bash
+python test_rsrp.py    # A3 RSRP baseline with multiple seeds (10 runs, 900s each)
+python test_cho.py     # CHO weight sweep (similarity vs Q-value trade-off)
+```
 
 ---
 
@@ -285,7 +293,7 @@ RSRP(neighbor) > RSRP(serving) + hysteresis
 ```
 
 - Default hysteresis: **2 dB**
-- Time-to-Trigger (TTT): **320 ms** — condition must hold for the last 320 ms of reports
+- Time-to-Trigger (TTT): **160 ms** — condition must hold for the last 160 ms of reports
 - Initial connection: UE automatically attaches to the strongest available tower
 - Decisions are evaluated at every simulation timestep
 
@@ -340,9 +348,10 @@ The reward uses a **counterfactual delta** framework — signals from the old an
 | Scenario | Reward |
 |---|---|
 | Handover executed | `rsrp(new_tower) - rsrp(old_tower) - dynamic_penalty` |
-| Stay (no handover) | `0.0` |
+| Stay (no handover) | `rsrp(serving) - rsrp(best_alternative)` — positive if serving is stronger, negative if a better option exists |
+| RLF penalty | `-1.5` applied on top of any reward when serving RSRP falls below the RLF threshold |
 
-The agent is only rewarded/penalized for handover decisions. Staying incurs no cost, so the agent only switches when the RSRP improvement exceeds the handover penalty. This acts as a learned hysteresis, reducing unnecessary ping-pong handovers.
+The "stay" reward uses a **counterfactual comparison**: the agent is rewarded for staying on a strong tower and penalized for ignoring a better alternative. Combined with the handover penalty, this creates a learned hysteresis that balances signal quality against switching cost.
 
 #### Dynamic Handover Penalty (Cooldown)
 
@@ -417,7 +426,8 @@ This produces a penalty range of `0.0` (fully cooled down) to `0.5` (immediate r
 - [x] TensorBoard metric logging
 - [x] Separated data preparation and simulation scripts
 - [x] DDQN agent with full training loop
-- [x] Gymnasium handover environment (top-4 filtering, counterfactual delta reward)
+- [x] Gymnasium handover environment (top-4 filtering, counterfactual reward, RLF penalty)
+- [x] RSRP trend observation (delta between consecutive reports per tower)
 - [x] Speed-aware observation space (network-side UE speed estimation)
 - [x] Time-since-handover observation feature (handover cooldown awareness)
 - [x] Dynamic handover penalty (cooldown-based, anti-ping-pong)
@@ -466,7 +476,7 @@ This simulation is a **system-level abstraction** of the 5G NR physical layer, n
 | **RLF detection** | SINR/BLER-based Qout with T310/N310/N311 timers | Single RSRP threshold per-RAT (≈ -116 dBm) | Captures cell-edge failure events without full L1/RRC timer state machine |
 | **Handover delay** | Variable interruption (search, SI acquisition, RACH) | Fixed per-RAT (NR: 20 ms, LTE: 40 ms) | Matches 3GPP intra-freq known-cell baseline from TS 38.133/36.133 |
 
-See [sources.md](sources.md) for full technical references and justifications.
+See [architecture.md](architecture.md) for system architecture diagrams and [sources.md](sources.md) for full technical references and justifications.
 
 ---
 
