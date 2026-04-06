@@ -64,8 +64,9 @@ adam = optim.Adam(policy_network.parameters(), lr=lr)
 
 memory = ReplayBuffer()
 checkpoint_manager = CheckpointManager()
+from datetime import datetime as _dt
 tb_logger = Logger(
-    logdir="outputs/runs", name="Training"
+    logdir="outputs/runs", name=f'Training_{_dt.now().strftime("%Y%m%d_%H%M%S")}'
 )  # Initialize TensorBoard Writer
 
 start_episode, epsilon = checkpoint_manager.load_checkpoint(

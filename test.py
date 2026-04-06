@@ -237,6 +237,9 @@ def simulation(
 
 if __name__ == "__main__":
     init(autoreset=True)
+    from datetime import datetime
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     print(Fore.CYAN + Style.BRIGHT + f"--- Starting Test ---")
 
@@ -259,7 +262,7 @@ if __name__ == "__main__":
     # A3 RSRP
     # ===========================
     if TEST_A3_RSRP:
-        a3_rsrp_logger = Logger(logdir=LOGDIR, name="A3_RSRP_LONDON(15 min)")
+        a3_rsrp_logger = Logger(logdir=LOGDIR, name=f"A3_RSRP_LONDON(15 min)_{timestamp}")
         # Initialize User Equipment (Cars)
         num_ue = FcdParser.count_vehicles()
         a3_rsrp_cars: dict[int, UserEquipment] = {
@@ -297,7 +300,7 @@ if __name__ == "__main__":
             bs.connected_ues.clear()
         WaveUtils.reset_fading_state()
 
-        ddqn_logger = Logger(logdir=LOGDIR, name="DDQN_CHO_LONDON(15 min)")
+        ddqn_logger = Logger(logdir=LOGDIR, name=f"DDQN_CHO_LONDON(15 min)_{timestamp}")
         UserEquipment.load_model(
             map_location="cuda" if torch.cuda.is_available() else "cpu"
         )

@@ -31,8 +31,7 @@ class Logger:
         AVERAGE_PINGPONG_RATE = "AVERAGE_PINGPONG_RATE"
 
     def __init__(self, name: Optional[str], logdir: str = "outputs/runs"):
-        prefix = f"{name}_" if name is not None else ""
-        run_name = f'{prefix}{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+        run_name = name if name is not None else datetime.now().strftime("%Y%m%d_%H%M%S")
         run_dir = Path(logdir) / run_name
         run_dir.mkdir(parents=True, exist_ok=True)
         self.writer = SummaryWriter(str(run_dir))
