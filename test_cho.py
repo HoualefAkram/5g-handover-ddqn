@@ -26,7 +26,20 @@ SIMULATION_TIME = 900
 STEP_LENGTH = 0.1
 
 # CHO weight sweep: q_weight = 1 - similarity_weight (weights sum to 1)
-SIMILARITY_WEIGHTS = [0.001, 0.005, 0.01, 0.02, 0.05, 0.08, 0.1, 0.15, 0.2, 0.3]
+SIMILARITY_WEIGHTS = [
+    0.001,
+    0.005,
+    0.01,
+    0.02,
+    0.05,
+    0.08,
+    0.1,
+    0.15,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+]
 
 
 # --- Helpers ---
@@ -176,6 +189,13 @@ if __name__ == "__main__":
     # all_results[label] = list of result dicts (one per seed)
     all_results = {label: [] for label in algo_labels}
 
+    # PERF loggers (1 per algorithm variant)
+    perf_loggers = {}
+    for label in algo_labels:
+        perf_loggers[label] = Logger(
+            logdir=LOGDIR, name=f"PERF_{label}_{timestamp}"
+        )
+
     # ===========================
     # Seed Loop
     # ===========================
@@ -258,6 +278,43 @@ if __name__ == "__main__":
                 )
             )
             cho_logger.close()
+
+        # Log running PERF metrics (avg across seeds so far)
+        step = seed_idx + 1
+        completed_seeds = step
+
+        for label in algo_labels:
+            runs = all_results[label]
+            if len(runs) < completed_seeds:
+                continue
+            total_ho = sum(r["handovers"] for r in runs)
+            total_pp = sum(r["pingpongs"] for r in runs)
+            perf = perf_loggers[label]
+            perf.log_global_metric(
+                Logger.Metric.AVERAGE_HANDOVERS, total_ho / completed_seeds, step
+            )
+            perf.log_global_metric(
+                Logger.Metric.AVERAGE_PINGPONG, total_pp / completed_seeds, step
+            )
+            perf.log_global_metric(
+                Logger.Metric.PINGPONG_RATE,
+                total_pp / total_ho if total_ho > 0 else 0,
+                step,
+            )
+            perf.log_global_metric(
+                Logger.Metric.AVERAGE_RLF,
+                sum(r["rlf"] for r in runs) / completed_seeds,
+                step,
+            )
+            perf.log_global_metric(
+                Logger.Metric.AVERAGE_DHO,
+                sum(r["dho"] for r in runs) / completed_seeds,
+                step,
+            )
+
+    # Close PERF loggers
+    for label in algo_labels:
+        perf_loggers[label].close()
 
     # ===========================
     # Average Results Across Seeds
