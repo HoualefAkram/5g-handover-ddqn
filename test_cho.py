@@ -22,9 +22,9 @@ SEED = 42
 SIMULATION_TIME = 900
 STEP_LENGTH = 0.1
 
-# CHO weight sweep: similarity_weight fixed at 1, q_weight from 1 to 10
-SIMILARITY_WEIGHT = 1
-Q_WEIGHTS = list(range(1, 11))
+# CHO weight sweep: q_weight fixed at 1, similarity_weight as tiebreaker (low values)
+Q_WEIGHT = 1
+SIMILARITY_WEIGHTS = [0.001, 0.005, 0.01, 0.02, 0.05, 0.08, 0.1, 0.15, 0.2, 0.3]
 
 
 # --- Helpers ---
@@ -147,8 +147,8 @@ if __name__ == "__main__":
         + Style.BRIGHT
         + f"--- Starting CHO Test (SEED {SEED}) ---"
     )
-    print(Fore.YELLOW + f"  Similarity weight: {SIMILARITY_WEIGHT} (fixed)")
-    print(Fore.YELLOW + f"  Q weights: {Q_WEIGHTS}")
+    print(Fore.YELLOW + f"  Q weight: {Q_WEIGHT} (fixed)")
+    print(Fore.YELLOW + f"  Similarity weights: {SIMILARITY_WEIGHTS}")
 
     # Base Stations
     bs_list: list[BaseTower] = TowerDownloader.get_towers_from_cache()
@@ -171,7 +171,7 @@ if __name__ == "__main__":
     generate_trace(SEED)
     fcd_data: list[dict[int, CarFcdData]] = FcdParser.parse_fcd_trace()
 
-    algo_labels = ["DDQN"] + [f"CHO_s{SIMILARITY_WEIGHT}_q{qw}" for qw in Q_WEIGHTS]
+    algo_labels = ["DDQN"] + [f"CHO_s{sw}_q{Q_WEIGHT}" for sw in SIMILARITY_WEIGHTS]
     results = {}
 
     # ===========================
@@ -204,8 +204,8 @@ if __name__ == "__main__":
     # ===========================
     # DDQN_CHO with weight sweep
     # ===========================
-    for qw in Q_WEIGHTS:
-        label = f"CHO_s{SIMILARITY_WEIGHT}_q{qw}"
+    for sw in SIMILARITY_WEIGHTS:
+        label = f"CHO_s{sw}_q{Q_WEIGHT}"
 
         for bs in bs_list:
             bs.connected_ues.clear()
@@ -219,14 +219,14 @@ if __name__ == "__main__":
             all_bs=bs_list,
             print_logs_on_movement=False,
             handover_algorithm=HandoverAlgorithm.DDQN_CHO,
-            cho_similarity_weight=SIMILARITY_WEIGHT,
-            cho_q_weight=qw,
+            cho_similarity_weight=sw,
+            cho_q_weight=Q_WEIGHT,
         )
 
         print(
             Fore.CYAN
             + Style.BRIGHT
-            + f"  [{run_name}] Simulating CHO (sim={SIMILARITY_WEIGHT}, q={qw})..."
+            + f"  [{run_name}] Simulating CHO (sim={sw}, q={Q_WEIGHT})..."
         )
 
         results[label] = simulation(
