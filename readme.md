@@ -41,7 +41,7 @@ This simulator models that process from first principles using real map data, re
 │   ├── ng_ran_report.py        # Signal measurement report (UE → BS)
 │   ├── car_fcd_data.py         # SUMO FCD trace data per vehicle
 │   ├── q_network.py            # QNetwork (PyTorch nn.Module) — DDQN policy/target network
-│   └── handover_algorithm.py   # Enum: A3_RSRP_3GPP, DDQN_CHO, NONE
+│   └── handover_algorithm.py   # Enum: A3_RSRP_3GPP, DDQN_CHO, DDQN, NONE
 │
 ├── rl/
 │   ├── handover_env.py         # Gymnasium environment for handover decisions
@@ -50,7 +50,7 @@ This simulator models that process from first principles using real map data, re
 │   └── checkpoint_manager.py   # Model checkpointing (epoch, epsilon, networks, optimizer)
 │
 ├── helpers/
-│   ├── filters.py              # Top-k tower filtering by combined RSRP/RSRQ score
+│   ├── filters.py              # Top-k tower filtering by normalized RSRP score
 │   └── functions.py            # Softmax, cosine similarity, bearing, weighted sum
 │
 ├── utils/
@@ -64,6 +64,10 @@ This simulator models that process from first principles using real map data, re
 │   ├── fcd_parser.py           # SUMO FCD XML parser
 │   └── logger.py               # TensorBoard logging (per-UE and global metrics)
 │
+├── test_rsrp.py                # A3 RSRP baseline testing with multiple seeds
+├── test_cho.py                 # CHO weight sweep testing
+│
+├── architecture.md             # System architecture diagrams
 ├── sources.md                  # Technical references and design-choice justifications
 │
 ├── cache/
@@ -147,14 +151,14 @@ Set `USE_GPU = True` (default) in `rl/ddqn_agent.py` to train on CUDA if availab
 
 ## Configuration
 
-Simulation parameters are configured in `prepare.py` and `test.py`. The default area is in the UK (near Milton Keynes):
+Simulation parameters are configured in `prepare.py` and `test.py`. The default area is in central London, UK:
 
 | Parameter | Default | Description |
 |---|---|---|
-| `MAP_TOP_LEFT` | `(52.049042, -0.780256)` | NW corner of simulation area (UK) |
-| `MAP_BOTTOM_RIGHT` | `(52.029144, -0.733949)` | SE corner of simulation area |
+| `MAP_TOP_LEFT` | `(51.519480, -0.169511)` | NW corner of simulation area (London, UK) |
+| `MAP_BOTTOM_RIGHT` | `(51.479214, -0.105529)` | SE corner of simulation area |
 | `MCC` | `234` | Mobile Country Code (UK) |
-| `SEED` | `42` | Random seed for reproducible SUMO traffic |
+| `SEED` | `100` | Random seed for reproducible SUMO traffic |
 | `SIMULATION_TIME` | `300` | Simulation duration in seconds (5 minutes) |
 | `STEP_LENGTH` | `0.1` | Simulation step length in seconds (100 ms) |
 | `SPAWN_INTERVAL` | `5` | Vehicle spawn interval in seconds (SUMO randomTrips) |
@@ -168,7 +172,7 @@ Simulation parameters are configured in `prepare.py` and `test.py`. The default 
 | Parameter | Default | Description |
 |---|---|---|
 | `USE_GPU` | `True` | Use CUDA GPU if available, `False` to force CPU |
-| `episodes` | `600` | Number of training episodes |
+| `episodes` | `800` | Number of training episodes |
 | `lr` | `5e-4` | Adam learning rate |
 | `gamma` | `0.97` | Discount factor |
 | `decay_val` | `0.99` | Epsilon decay multiplier per episode |
@@ -310,7 +314,8 @@ Each handover adds a fixed interruption delay to the UE's accumulated handover d
 | Algorithm | Status | Description |
 |---|---|---|
 | `A3_RSRP_3GPP` | Implemented | Standard 3GPP A3 event with hysteresis and TTT |
-| `DDQN_CHO` | Implemented | Deep Double Q-Network with A2 gate (evaluates only when serving RSRP < -80 dBm) |
+| `DDQN_CHO` | Implemented | Deep Double Q-Network with direction-aware conditional handover (bearing/cosine similarity re-ranking) |
+| `DDQN` | Implemented | Pure DDQN (argmax Q-values, no direction-aware post-processing) |
 | `NONE` | — | No handover (stay on initial tower) |
 
 ---
@@ -320,11 +325,11 @@ Each handover adds a fixed interruption delay to the UE's accumulated handover d
 The project includes a full DDQN training pipeline for learned handover optimization:
 
 - **QNetwork** (`data_models/q_network.py`) — PyTorch `nn.Module` (14 → 256 → 128 → 64 → 4) with GELU activations, hard target-network update, and `from_state_dict` factory
-- **Gymnasium Environment** (`rl/handover_env.py`) — action space: choose 1 of top-4 base stations; observation: 4 normalized RSRP + 4 normalized RSRQ + 4 serving one-hot + 1 normalized speed + 1 normalized time since last handover = 14 features
+- **Gymnasium Environment** (`rl/handover_env.py`) — action space: choose 1 of top-4 base stations; observation: 4 normalized RSRP + 4 RSRP trend (delta from previous report) + 4 serving one-hot + 1 normalized speed + 1 normalized time since last handover = 14 features
 - **DDQN Agent** (`rl/ddqn_agent.py`) — Double DQN with experience replay, epsilon-greedy exploration, target network hard updates, and GPU support
 - **Replay Buffer** (`rl/replay_buffer.py`) — persistent experience replay with disk save/load
 - **Checkpoint Manager** (`rl/checkpoint_manager.py`) — saves/resumes training state (epoch, epsilon, networks, optimizer) with cross-device support
-- **Top-k Filtering** (`helpers/filters.py`) — selects the k best candidate towers by weighted RSRP/RSRQ score for the observation space
+- **Top-k Filtering** (`helpers/filters.py`) — selects the k best candidate towers by normalized RSRP score for the observation space
 - **Helper Functions** (`helpers/functions.py`) — softmax, cosine similarity, bearing calculation, and weighted sum used by the DDQN handover logic
 - **TensorBoard Logger** (`utils/logger.py`) — tracks per-UE metrics (RSRP, RSRQ, handovers, ping-pongs) and system-level metrics (averages, totals, ping-pong rate), plus training metrics (reward, loss, Q-values, epsilon)
 
@@ -334,26 +339,27 @@ The reward uses a **counterfactual delta** framework — signals from the old an
 
 | Scenario | Reward |
 |---|---|
-| Handover executed | `rsrp(new_tower) - rsrp(old_tower) + rsrq(new_tower) - rsrq(old_tower) - dynamic_penalty` |
+| Handover executed | `rsrp(new_tower) - rsrp(old_tower) - dynamic_penalty` |
 | Stay (no handover) | `0.0` |
 
-The agent is only rewarded/penalized for handover decisions. Staying incurs no cost, so the agent only switches when the signal improvement exceeds the handover penalty. This acts as a learned hysteresis, reducing unnecessary ping-pong handovers.
+The agent is only rewarded/penalized for handover decisions. Staying incurs no cost, so the agent only switches when the RSRP improvement exceeds the handover penalty. This acts as a learned hysteresis, reducing unnecessary ping-pong handovers.
 
 #### Dynamic Handover Penalty (Cooldown)
 
 The handover penalty scales based on time since the last handover, penalizing rapid switching more heavily:
 
 ```
-penalty = base_penalty + cooldown_penalty * (1 - time_since_ho / min_time_of_stay)
+penalty = cooldown_penalty * (1 - time_since_ho)
 ```
+
+Where `time_since_ho` is normalized to `[0, 1]` based on `min_time_of_stay`.
 
 | Parameter | Value | Description |
 |---|---|---|
-| `base_penalty` | `0.2` | Minimum penalty for any handover |
-| `cooldown_penalty` | `0.3` | Additional penalty that decays with time |
-| `min_time_of_stay` | `2.5 s` | Cooldown period before penalty returns to base |
+| `cooldown_penalty` | `0.5` | Maximum penalty (decays with time since last handover) |
+| `min_time_of_stay` | `1.0 s` | Cooldown period before penalty reaches zero |
 
-This produces a penalty range of `0.2` (cooled down) to `0.5` (immediate re-switch), directly discouraging ping-pong handovers while allowing justified handovers after the cooldown.
+This produces a penalty range of `0.0` (fully cooled down) to `0.5` (immediate re-switch), directly discouraging ping-pong handovers while allowing justified handovers after the cooldown.
 
 ---
 
@@ -426,7 +432,9 @@ This produces a penalty range of `0.2` (cooled down) to `0.5` (immediate re-swit
 - [x] Top-k tower filtering and direction-aware scoring (helpers module)
 - [x] DDQN handover decision logic in UserEquipment
 - [x] Conditional Handover (CHO) post-processing — UE-side bearing/cosine similarity re-ranking
-- [ ] Trained DDQN agent evaluation vs 3GPP A3 baseline
+- [x] Trained DDQN agent evaluation vs 3GPP A3 baseline
+- [x] Multi-seed A3 baseline testing (`test_rsrp.py`)
+- [x] CHO weight sweep testing (`test_cho.py`)
 
 ---
 
