@@ -37,6 +37,8 @@ class UserEquipment:
         serving_bs: Optional[BaseTower] = None,
         print_logs_on_movement: bool = False,
         handover_algorithm: HandoverAlgorithm = HandoverAlgorithm.A3_RSRP_3GPP,
+        cho_similarity_weight: float = 0.01,
+        cho_q_weight: float = 0.1,
     ):
         self.id: int = id
         self.g_rx: float = g_rx  # 0 to +2 dBi
@@ -49,6 +51,8 @@ class UserEquipment:
         # (bs_id, timestep) after each connection
         self.connection_history: list[tuple[int, float]] = []
         self.handover_algorithm = handover_algorithm
+        self.cho_similarity_weight = cho_similarity_weight
+        self.cho_q_weight = cho_q_weight
         self.speed = 0
         self.angle = 0
         self.rlf_count = 0
@@ -165,7 +169,10 @@ class UserEquipment:
             case HandoverAlgorithm.A3_RSRP_3GPP:
                 target_bs = self.check_handover_3gpp_rsrp()
             case HandoverAlgorithm.DDQN_CHO:
-                target_bs = self.check_handover_ddqn()
+                target_bs = self.check_handover_ddqn(
+                    similarity_weight=self.cho_similarity_weight,
+                    q_weight=self.cho_q_weight,
+                )
             case HandoverAlgorithm.DDQN:
                 target_bs = self.check_handover_ddqn_only()
             case HandoverAlgorithm.NONE:
@@ -319,10 +326,11 @@ class UserEquipment:
             return None
         return target_bs
 
-    def check_handover_ddqn(self):
-        # Params
-        q_weight = 0.1
-        similarity_weight = 0.01
+    def check_handover_ddqn(
+        self,
+        similarity_weight: float = 0.01,
+        q_weight: float = 0.1,
+    ):
         weights = [similarity_weight, q_weight]
         # return None if no reports are generated
         if not self.generated_reports:
