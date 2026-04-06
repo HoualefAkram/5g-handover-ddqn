@@ -395,6 +395,9 @@ class UserEquipment:
         target_bs_idx = tower1_idx if score_tower_1 > score_tower_2 else tower2_idx
         target_bs: BaseTower = top_4_towers[target_bs_idx]
 
+        if target_bs == self.serving_bs:
+            return None
+
         return target_bs
 
     def check_handover_3gpp_rsrp(
