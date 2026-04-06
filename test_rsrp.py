@@ -12,7 +12,10 @@ import torch
 import webbrowser
 import subprocess
 import time
+import random
 from pathlib import Path
+from datetime import datetime
+from collections import defaultdict
 from utils.logger import Logger
 
 # --- Params ---
@@ -21,14 +24,24 @@ SHOW_FOLIUM_OUTPUT = True
 SHOW_TENSORBOARD_OUTPUT = True
 FOLIUM_OUTPUT = "outputs/folium/simulation.html"
 LOGDIR = "outputs/runs"
-TEST_A3_RSRP = True
-TEST_DDQN = True
 SEED = 42
 SEED_COUNT = 10
 SIMULATION_TIME = 900
 STEP_LENGTH = 0.1
 
-# --- Execution ---
+ALGORITHMS = [
+    ("A3_RSRP", HandoverAlgorithm.A3_RSRP_3GPP, {}),
+    ("DDQN", HandoverAlgorithm.DDQN, {}),
+    ("DDQN_CHO", HandoverAlgorithm.DDQN_CHO, {}),
+]
+
+ALGO_COLORS = {
+    "A3_RSRP": Fore.MAGENTA,
+    "DDQN": Fore.CYAN,
+    "DDQN_CHO": Fore.GREEN,
+}
+
+# --- Helpers ---
 
 
 def generate_trace(seed: int):
@@ -85,52 +98,43 @@ def simulation(
                 radio_type=car.serving_bs.radio,
             )
             rsrp_per_step[i] = rsrp
-            car_handovers = car.get_total_handovers()
-            car_pingpongs = car.get_total_pingpong()
-            car_pingpongs_rate = car.get_pingpong_rate()
-            car_rlf = car.rlf_count
-            car_dho_time = car.dho_time
 
             logger.log_ue_metric(
-                ue_index=car.id,
-                metric=Logger.Metric.RSRP,
-                step=i,
-                value=rsrp,
+                ue_index=car.id, metric=Logger.Metric.RSRP, step=i, value=rsrp
             )
             logger.log_ue_metric(
                 ue_index=car.id,
                 metric=Logger.Metric.TOTAL_HANDOVERS,
                 step=i,
-                value=car_handovers,
+                value=car.get_total_handovers(),
             )
             logger.log_ue_metric(
                 ue_index=car.id,
                 metric=Logger.Metric.TOTAL_PINGPONG,
                 step=i,
-                value=car_pingpongs,
+                value=car.get_total_pingpong(),
             )
             logger.log_ue_metric(
                 ue_index=car.id,
                 metric=Logger.Metric.PINGPONG_RATE,
                 step=i,
-                value=car_pingpongs_rate,
+                value=car.get_pingpong_rate(),
             )
             logger.log_ue_metric(
                 ue_index=car.id,
                 metric=Logger.Metric.TOTAL_RLF,
                 step=i,
-                value=car_rlf,
+                value=car.rlf_count,
             )
             logger.log_ue_metric(
                 ue_index=car.id,
                 metric=Logger.Metric.TOTAL_DHO,
                 step=i,
-                value=car_dho_time,
+                value=car.dho_time,
             )
 
     print()
 
-    # Log final summary
     total_handovers = car.get_total_handovers()
     total_pingpong = car.get_total_pingpong()
     pingpong_rate = total_pingpong / total_handovers if total_handovers > 0 else 0.0
@@ -151,13 +155,16 @@ def simulation(
 
 if __name__ == "__main__":
     init(autoreset=True)
-    from datetime import datetime
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    print(Fore.CYAN + Style.BRIGHT + f"--- Starting RSRP Test ({SEED_COUNT} seeds) ---")
+    print(
+        Fore.CYAN
+        + Style.BRIGHT
+        + f"--- Starting RSRP Test ({SEED_COUNT} seeds, {len(ALGORITHMS)} algorithms) ---"
+    )
 
-    # Base Stations (from test location: London 51.513377,-0.158129 to 51.493742,-0.141296)
+    # Base Stations (test location: London 51.513377,-0.158129 to 51.493742,-0.141296)
     bs_list: list[BaseTower] = TowerDownloader.get_towers_from_cache()
 
     if not bs_list:
@@ -169,28 +176,28 @@ if __name__ == "__main__":
         print(error_text)
         raise Exception(error_text)
 
-    # Load DDQN model once if needed
-    if TEST_DDQN:
-        UserEquipment.load_model(
-            map_location="cuda" if torch.cuda.is_available() else "cpu"
-        )
+    # Load DDQN model once (shared by DDQN and DDQN_CHO)
+    UserEquipment.load_model(
+        map_location="cuda" if torch.cuda.is_available() else "cpu"
+    )
+
+    # Generate deterministic seeds from master SEED
+    rng = random.Random(SEED)
+    seeds = [rng.randint(0, 10000) for _ in range(SEED_COUNT)]
+    seed_pad = len(str(SEED_COUNT))
 
     all_results = {}
 
-    # Generate deterministic seeds from SEED
-    import random
+    # PERF Loggers (1 per algorithm)
+    perf_loggers = {}
+    for algo_label, _, _ in ALGORITHMS:
+        perf_loggers[algo_label] = Logger(
+            logdir=LOGDIR, name=f"PERF_{algo_label}_LONDON_{timestamp}"
+        )
 
-    rng = random.Random(SEED)
-    seeds = [rng.randint(0, 10000) for _ in range(SEED_COUNT)]
-
-    # Performance loggers: aggregate avg/total across all seeds
-    if TEST_A3_RSRP:
-        a3_perf_logger = Logger(logdir=LOGDIR, name=f"PERF_A3_RSRP_LONDON_{timestamp}")
-    if TEST_DDQN:
-        ddqn_perf_logger = Logger(logdir=LOGDIR, name=f"PERF_DDQN_LONDON_{timestamp}")
-
-    seed_pad = len(str(SEED_COUNT))
-
+    # ===========================
+    # Seed Loop
+    # ===========================
     for seed_idx in range(SEED_COUNT):
         seed = seeds[seed_idx]
         seed_label = str(seed_idx + 1).zfill(seed_pad)
@@ -209,60 +216,35 @@ if __name__ == "__main__":
 
         iteration_results = {}
 
-        # ===========================
-        # A3 RSRP
-        # ===========================
-        if TEST_A3_RSRP:
-            run_name = f"SEED{seed_label}_A3_RSRP_LONDON_{timestamp}"
-            a3_rsrp_logger = Logger(logdir=LOGDIR, name=run_name)
-
-            a3_rsrp_car = UserEquipment(
-                id=0,
-                all_bs=bs_list,
-                print_logs_on_movement=False,
-                handover_algorithm=HandoverAlgorithm.A3_RSRP_3GPP,
-            )
-
-            print(Fore.CYAN + Style.BRIGHT + f"  [{run_name}] Simulating A3 RSRP...")
-
-            result = simulation(
-                bs_list=bs_list,
-                fcd_data=fcd_data,
-                logger=a3_rsrp_logger,
-                car=a3_rsrp_car,
-            )
-            iteration_results["A3_RSRP"] = result
-            a3_rsrp_logger.close()
-
-        # ===========================
-        # DDQN
-        # ===========================
-        if TEST_DDQN:
-            # Wipe tower memory and fading state
+        for algo_label, algo_enum, algo_kwargs in ALGORITHMS:
+            # Reset tower state + fading before each algorithm
             for bs in bs_list:
                 bs.connected_ues.clear()
             WaveUtils.reset_fading_state()
 
-            run_name = f"SEED{seed_label}_DDQN_LONDON_{timestamp}"
-            ddqn_logger = Logger(logdir=LOGDIR, name=run_name)
+            # Per-seed per-algo logger
+            run_name = f"SEED{seed_label}_{algo_label}_LONDON_{timestamp}"
+            seed_logger = Logger(logdir=LOGDIR, name=run_name)
 
-            ddqn_car = UserEquipment(
+            car = UserEquipment(
                 id=0,
                 all_bs=bs_list,
                 print_logs_on_movement=False,
-                handover_algorithm=HandoverAlgorithm.DDQN_CHO,
+                handover_algorithm=algo_enum,
+                **algo_kwargs,
             )
 
-            print(Fore.CYAN + Style.BRIGHT + f"  [{run_name}] Simulating DDQN_CHO...")
+            color = ALGO_COLORS.get(algo_label, Fore.WHITE)
+            print(color + Style.BRIGHT + f"  [{run_name}] Simulating {algo_label}...")
 
             result = simulation(
                 bs_list=bs_list,
                 fcd_data=fcd_data,
-                logger=ddqn_logger,
-                car=ddqn_car,
+                logger=seed_logger,
+                car=car,
             )
-            iteration_results["DDQN"] = result
-            ddqn_logger.close()
+            iteration_results[algo_label] = result
+            seed_logger.close()
 
         # Reset tower state between seeds
         for bs in bs_list:
@@ -271,110 +253,53 @@ if __name__ == "__main__":
 
         all_results[seed] = iteration_results
 
-        # Log running Performance (avg/total across seeds so far)
+        # Log running PERF metrics (avg across seeds so far)
         step = seed_idx + 1
         completed_seeds = step
 
-        if TEST_A3_RSRP and "A3_RSRP" in iteration_results:
-            a3_vals = [
-                all_results[s]["A3_RSRP"]
+        for algo_label, _, _ in ALGORITHMS:
+            if algo_label not in iteration_results:
+                continue
+            vals = [
+                all_results[s][algo_label]
                 for s in all_results
-                if "A3_RSRP" in all_results[s]
+                if algo_label in all_results[s]
             ]
-            total_ho = sum(v["handovers"] for v in a3_vals)
-            total_pp = sum(v["pingpongs"] for v in a3_vals)
-            total_rlf = sum(v["rlf"] for v in a3_vals)
-            total_dho = sum(v["dho"] for v in a3_vals)
-            a3_perf_logger.log_global_metric(
-                Logger.Metric.TOTAL_HANDOVERS, total_ho, step
-            )
-            a3_perf_logger.log_global_metric(
-                Logger.Metric.AVERAGE_HANDOVERS, total_ho / completed_seeds, step
-            )
-            a3_perf_logger.log_global_metric(
-                Logger.Metric.TOTAL_PINGPONG, total_pp, step
-            )
-            a3_perf_logger.log_global_metric(
-                Logger.Metric.AVERAGE_PINGPONG, total_pp / completed_seeds, step
-            )
-            a3_perf_logger.log_global_metric(
+            avg_ho = sum(v["handovers"] for v in vals) / completed_seeds
+            avg_pp = sum(v["pingpongs"] for v in vals) / completed_seeds
+            total_ho = sum(v["handovers"] for v in vals)
+            total_pp = sum(v["pingpongs"] for v in vals)
+            avg_rlf = sum(v["rlf"] for v in vals) / completed_seeds
+            avg_dho = sum(v["dho"] for v in vals) / completed_seeds
+            perf = perf_loggers[algo_label]
+            perf.log_global_metric(Logger.Metric.AVERAGE_HANDOVERS, avg_ho, step)
+            perf.log_global_metric(Logger.Metric.AVERAGE_PINGPONG, avg_pp, step)
+            perf.log_global_metric(
                 Logger.Metric.PINGPONG_RATE,
                 total_pp / total_ho if total_ho > 0 else 0,
                 step,
             )
-            a3_perf_logger.log_global_metric(Logger.Metric.TOTAL_RLF, total_rlf, step)
-            a3_perf_logger.log_global_metric(
-                Logger.Metric.AVERAGE_RLF, total_rlf / completed_seeds, step
-            )
-            a3_perf_logger.log_global_metric(Logger.Metric.TOTAL_DHO, total_dho, step)
-            a3_perf_logger.log_global_metric(
-                Logger.Metric.AVERAGE_DHO, total_dho / completed_seeds, step
-            )
+            perf.log_global_metric(Logger.Metric.AVERAGE_RLF, avg_rlf, step)
+            perf.log_global_metric(Logger.Metric.AVERAGE_DHO, avg_dho, step)
 
-        if TEST_DDQN and "DDQN" in iteration_results:
-            ddqn_vals = [
-                all_results[s]["DDQN"] for s in all_results if "DDQN" in all_results[s]
-            ]
-            total_ho = sum(v["handovers"] for v in ddqn_vals)
-            total_pp = sum(v["pingpongs"] for v in ddqn_vals)
-            total_rlf = sum(v["rlf"] for v in ddqn_vals)
-            total_dho = sum(v["dho"] for v in ddqn_vals)
-            ddqn_perf_logger.log_global_metric(
-                Logger.Metric.TOTAL_HANDOVERS, total_ho, step
-            )
-            ddqn_perf_logger.log_global_metric(
-                Logger.Metric.AVERAGE_HANDOVERS, total_ho / completed_seeds, step
-            )
-            ddqn_perf_logger.log_global_metric(
-                Logger.Metric.TOTAL_PINGPONG, total_pp, step
-            )
-            ddqn_perf_logger.log_global_metric(
-                Logger.Metric.AVERAGE_PINGPONG, total_pp / completed_seeds, step
-            )
-            ddqn_perf_logger.log_global_metric(
-                Logger.Metric.PINGPONG_RATE,
-                total_pp / total_ho if total_ho > 0 else 0,
-                step,
-            )
-            ddqn_perf_logger.log_global_metric(Logger.Metric.TOTAL_RLF, total_rlf, step)
-            ddqn_perf_logger.log_global_metric(
-                Logger.Metric.AVERAGE_RLF, total_rlf / completed_seeds, step
-            )
-            ddqn_perf_logger.log_global_metric(Logger.Metric.TOTAL_DHO, total_dho, step)
-            ddqn_perf_logger.log_global_metric(
-                Logger.Metric.AVERAGE_DHO, total_dho / completed_seeds, step
-            )
-
-    # Log average RSRP per step across all seeds
-    from collections import defaultdict
-
-    if TEST_A3_RSRP:
-        a3_rsrp_by_step = defaultdict(list)
+    # ===========================
+    # PERF: Average RSRP per step across seeds
+    # ===========================
+    for algo_label, _, _ in ALGORITHMS:
+        rsrp_by_step = defaultdict(list)
         for s in all_results:
-            if "A3_RSRP" in all_results[s]:
-                for step, rsrp in all_results[s]["A3_RSRP"]["rsrp_per_step"].items():
-                    a3_rsrp_by_step[step].append(rsrp)
-        for step in sorted(a3_rsrp_by_step):
-            avg_rsrp = sum(a3_rsrp_by_step[step]) / len(a3_rsrp_by_step[step])
-            a3_perf_logger.log_global_metric(Logger.Metric.AVERAGE_RSRP, avg_rsrp, step)
-
-    if TEST_DDQN:
-        ddqn_rsrp_by_step = defaultdict(list)
-        for s in all_results:
-            if "DDQN" in all_results[s]:
-                for step, rsrp in all_results[s]["DDQN"]["rsrp_per_step"].items():
-                    ddqn_rsrp_by_step[step].append(rsrp)
-        for step in sorted(ddqn_rsrp_by_step):
-            avg_rsrp = sum(ddqn_rsrp_by_step[step]) / len(ddqn_rsrp_by_step[step])
-            ddqn_perf_logger.log_global_metric(
+            if algo_label in all_results[s]:
+                for step, rsrp in all_results[s][algo_label]["rsrp_per_step"].items():
+                    rsrp_by_step[step].append(rsrp)
+        for step in sorted(rsrp_by_step):
+            avg_rsrp = sum(rsrp_by_step[step]) / len(rsrp_by_step[step])
+            perf_loggers[algo_label].log_global_metric(
                 Logger.Metric.AVERAGE_RSRP, avg_rsrp, step
             )
 
-    # Close performance loggers
-    if TEST_A3_RSRP:
-        a3_perf_logger.close()
-    if TEST_DDQN:
-        ddqn_perf_logger.close()
+    # Close PERF loggers
+    for algo_label, _, _ in ALGORITHMS:
+        perf_loggers[algo_label].close()
 
     # ===========================
     # Final Summary
@@ -388,55 +313,35 @@ if __name__ == "__main__":
     print(Fore.WHITE + Style.BRIGHT + header)
     print(Fore.WHITE + "-" * len(header))
 
-    a3_totals = {"handovers": 0, "pingpongs": 0, "rlf": 0, "dho": 0}
-    ddqn_totals = {"handovers": 0, "pingpongs": 0, "rlf": 0, "dho": 0}
+    algo_totals = {
+        label: {"handovers": 0, "pingpongs": 0, "rlf": 0, "dho": 0}
+        for label, _, _ in ALGORITHMS
+    }
 
     for seed, results in all_results.items():
         for algo, data in results.items():
             pp_rate_str = f"{data['pingpong_rate'] * 100:.1f}%"
             row = f"{seed:<6} | {algo:<10} | {data['handovers']:>10} | {data['pingpongs']:>10} | {pp_rate_str:>10} | {data['rlf']:>6} | {data['dho']:>8.2f}"
-            color = Fore.MAGENTA if algo == "A3_RSRP" else Fore.CYAN
+            color = ALGO_COLORS.get(algo, Fore.WHITE)
             print(color + row)
 
-            if algo == "A3_RSRP":
-                for k in a3_totals:
-                    a3_totals[k] += data[k]
-            else:
-                for k in ddqn_totals:
-                    ddqn_totals[k] += data[k]
+            for k in algo_totals[algo]:
+                algo_totals[algo][k] += data[k]
 
     print(Fore.WHITE + "-" * len(header))
 
-    if TEST_A3_RSRP:
-        avg_ho = a3_totals["handovers"] / SEED_COUNT
-        avg_pp = a3_totals["pingpongs"] / SEED_COUNT
-        avg_rlf = a3_totals["rlf"] / SEED_COUNT
-        avg_dho = a3_totals["dho"] / SEED_COUNT
-        pp_rate = (
-            a3_totals["pingpongs"] / a3_totals["handovers"]
-            if a3_totals["handovers"] > 0
-            else 0
-        )
+    for algo_label, _, _ in ALGORITHMS:
+        t = algo_totals[algo_label]
+        avg_ho = t["handovers"] / SEED_COUNT
+        avg_pp = t["pingpongs"] / SEED_COUNT
+        avg_rlf = t["rlf"] / SEED_COUNT
+        avg_dho = t["dho"] / SEED_COUNT
+        pp_rate = t["pingpongs"] / t["handovers"] if t["handovers"] > 0 else 0
+        color = ALGO_COLORS.get(algo_label, Fore.WHITE)
         print(
-            Fore.MAGENTA
+            color
             + Style.BRIGHT
-            + f"{'AVG':<6} | {'A3_RSRP':<10} | {avg_ho:>10.1f} | {avg_pp:>10.1f} | {pp_rate * 100:>9.1f}% | {avg_rlf:>6.1f} | {avg_dho:>8.2f}"
-        )
-
-    if TEST_DDQN:
-        avg_ho = ddqn_totals["handovers"] / SEED_COUNT
-        avg_pp = ddqn_totals["pingpongs"] / SEED_COUNT
-        avg_rlf = ddqn_totals["rlf"] / SEED_COUNT
-        avg_dho = ddqn_totals["dho"] / SEED_COUNT
-        pp_rate = (
-            ddqn_totals["pingpongs"] / ddqn_totals["handovers"]
-            if ddqn_totals["handovers"] > 0
-            else 0
-        )
-        print(
-            Fore.CYAN
-            + Style.BRIGHT
-            + f"{'AVG':<6} | {'DDQN':<10} | {avg_ho:>10.1f} | {avg_pp:>10.1f} | {pp_rate * 100:>9.1f}% | {avg_rlf:>6.1f} | {avg_dho:>8.2f}"
+            + f"{'AVG':<6} | {algo_label:<10} | {avg_ho:>10.1f} | {avg_pp:>10.1f} | {pp_rate * 100:>9.1f}% | {avg_rlf:>6.1f} | {avg_dho:>8.2f}"
         )
 
     print()
@@ -446,10 +351,8 @@ if __name__ == "__main__":
     # ===========================
     if SHOW_FOLIUM_OUTPUT:
         print(Fore.CYAN + Style.BRIGHT + "--- Rendering Final Output ---")
-        last_car = ddqn_car if TEST_DDQN else (a3_rsrp_car if TEST_A3_RSRP else None)
-        if last_car is not None:
-            Render.render_map(bs_list=bs_list, ue_list=[last_car])
-            webbrowser.open(Path(FOLIUM_OUTPUT).resolve().as_uri())
+        Render.render_map(bs_list=bs_list, ue_list=[car])
+        webbrowser.open(Path(FOLIUM_OUTPUT).resolve().as_uri())
 
     if SHOW_TENSORBOARD_OUTPUT:
         print(Fore.CYAN + Style.BRIGHT + "--- Launching TensorBoard ---")
