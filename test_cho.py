@@ -11,14 +11,17 @@ import torch
 import webbrowser
 import subprocess
 import time
+import random
 from pathlib import Path
+from datetime import datetime
 from utils.logger import Logger
 
 # --- Params ---
 
 SHOW_TENSORBOARD_OUTPUT = True
 LOGDIR = "outputs/runs"
-SEED = 1
+SEED = 42
+SEED_COUNT = 5
 SIMULATION_TIME = 900
 STEP_LENGTH = 0.1
 
@@ -48,7 +51,6 @@ def simulation(
 ):
     total_steps = len(fcd_data)
     start_time = time.time()
-    rsrp_per_step = {}
 
     for i in range(total_steps):
         fcd = fcd_data[i]
@@ -79,7 +81,6 @@ def simulation(
                 rsrp_index=report.rsrp_values.get(car.serving_bs.id, 0),
                 radio_type=car.serving_bs.radio,
             )
-            rsrp_per_step[i] = rsrp
 
             logger.log_ue_metric(
                 ue_index=car.id, metric=Logger.Metric.RSRP, step=i, value=rsrp
@@ -131,18 +132,20 @@ def simulation(
         "pingpong_rate": pingpong_rate,
         "rlf": car.rlf_count,
         "dho": car.dho_time,
-        "rsrp_per_step": rsrp_per_step,
     }
 
 
 if __name__ == "__main__":
     init(autoreset=True)
-    from datetime import datetime
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    print(Fore.CYAN + Style.BRIGHT + f"--- Starting CHO Test (SEED {SEED}) ---")
-    print(Fore.YELLOW + f"  Q weight: 1 - sim_weight")
+    print(
+        Fore.CYAN
+        + Style.BRIGHT
+        + f"--- Starting CHO Weight Sweep ({SEED_COUNT} seeds) ---"
+    )
+    print(Fore.YELLOW + f"  Master SEED: {SEED}")
     print(Fore.YELLOW + f"  Similarity weights: {SIMILARITY_WEIGHTS}")
 
     # Base Stations
@@ -162,98 +165,174 @@ if __name__ == "__main__":
         map_location="cuda" if torch.cuda.is_available() else "cpu"
     )
 
-    # Generate route once — same for all runs
-    generate_trace(SEED)
-    fcd_data: list[dict[int, CarFcdData]] = FcdParser.parse_fcd_trace()
+    # Generate deterministic seeds from master SEED
+    rng = random.Random(SEED)
+    seeds = [rng.randint(0, 10000) for _ in range(SEED_COUNT)]
+    seed_pad = len(str(SEED_COUNT))
 
+    # Labels: DDQN baseline + all CHO variants
     algo_labels = ["DDQN"] + [f"CHO_s{sw}_q{1 - sw}" for sw in SIMILARITY_WEIGHTS]
-    results = {}
+
+    # all_results[label] = list of result dicts (one per seed)
+    all_results = {label: [] for label in algo_labels}
 
     # ===========================
-    # Pure DDQN (baseline)
+    # Seed Loop
     # ===========================
-    for bs in bs_list:
-        bs.connected_ues.clear()
-    WaveUtils.reset_fading_state()
+    for seed_idx in range(SEED_COUNT):
+        seed = seeds[seed_idx]
+        seed_label = str(seed_idx + 1).zfill(seed_pad)
+        print()
+        print(Fore.YELLOW + Style.BRIGHT + f"{'='*70}")
+        print(
+            Fore.YELLOW
+            + Style.BRIGHT
+            + f"  Iteration {seed_idx + 1}/{SEED_COUNT} — SEED {seed}"
+        )
+        print(Fore.YELLOW + Style.BRIGHT + f"{'='*70}")
 
-    run_name = f"DDQN_{timestamp}"
-    ddqn_logger = Logger(logdir=LOGDIR, name=run_name)
+        # Generate new route with this seed
+        generate_trace(seed)
+        fcd_data: list[dict[int, CarFcdData]] = FcdParser.parse_fcd_trace()
 
-    ddqn_car = UserEquipment(
-        id=0,
-        all_bs=bs_list,
-        print_logs_on_movement=False,
-        handover_algorithm=HandoverAlgorithm.DDQN,
-    )
-
-    print(Fore.CYAN + Style.BRIGHT + f"  [{run_name}] Simulating DDQN...")
-
-    results["DDQN"] = simulation(
-        bs_list=bs_list,
-        fcd_data=fcd_data,
-        logger=ddqn_logger,
-        car=ddqn_car,
-    )
-    ddqn_logger.close()
-
-    # ===========================
-    # DDQN_CHO with weight sweep
-    # ===========================
-    for sw in SIMILARITY_WEIGHTS:
-        qw = 1 - sw
-        label = f"CHO_s{sw}_q{qw}"
-
+        # --- Pure DDQN (baseline) ---
         for bs in bs_list:
             bs.connected_ues.clear()
         WaveUtils.reset_fading_state()
 
-        run_name = f"{label}_{timestamp}"
-        cho_logger = Logger(logdir=LOGDIR, name=run_name)
+        run_name = f"SEED{seed_label}_DDQN_{timestamp}"
+        ddqn_logger = Logger(logdir=LOGDIR, name=run_name)
 
-        cho_car = UserEquipment(
+        ddqn_car = UserEquipment(
             id=0,
             all_bs=bs_list,
             print_logs_on_movement=False,
-            handover_algorithm=HandoverAlgorithm.DDQN_CHO,
-            cho_similarity_weight=sw,
-            cho_q_weight=qw,
+            handover_algorithm=HandoverAlgorithm.DDQN,
         )
 
-        print(
-            Fore.CYAN
-            + Style.BRIGHT
-            + f"  [{run_name}] Simulating CHO (sim={sw}, q={qw})..."
-        )
+        print(Fore.MAGENTA + Style.BRIGHT + f"  [{run_name}] Simulating DDQN...")
 
-        results[label] = simulation(
-            bs_list=bs_list,
-            fcd_data=fcd_data,
-            logger=cho_logger,
-            car=cho_car,
+        all_results["DDQN"].append(
+            simulation(
+                bs_list=bs_list,
+                fcd_data=fcd_data,
+                logger=ddqn_logger,
+                car=ddqn_car,
+            )
         )
-        cho_logger.close()
+        ddqn_logger.close()
+
+        # --- DDQN_CHO with weight sweep ---
+        for sw in SIMILARITY_WEIGHTS:
+            qw = 1 - sw
+            label = f"CHO_s{sw}_q{qw}"
+
+            for bs in bs_list:
+                bs.connected_ues.clear()
+            WaveUtils.reset_fading_state()
+
+            run_name = f"SEED{seed_label}_{label}_{timestamp}"
+            cho_logger = Logger(logdir=LOGDIR, name=run_name)
+
+            cho_car = UserEquipment(
+                id=0,
+                all_bs=bs_list,
+                print_logs_on_movement=False,
+                handover_algorithm=HandoverAlgorithm.DDQN_CHO,
+                cho_similarity_weight=sw,
+                cho_q_weight=qw,
+            )
+
+            print(
+                Fore.CYAN
+                + Style.BRIGHT
+                + f"  [{run_name}] Simulating CHO (sim={sw}, q={qw})..."
+            )
+
+            all_results[label].append(
+                simulation(
+                    bs_list=bs_list,
+                    fcd_data=fcd_data,
+                    logger=cho_logger,
+                    car=cho_car,
+                )
+            )
+            cho_logger.close()
+
+    # ===========================
+    # Average Results Across Seeds
+    # ===========================
+    avg_results = {}
+    for label in algo_labels:
+        runs = all_results[label]
+        n = len(runs)
+        total_ho = sum(r["handovers"] for r in runs)
+        total_pp = sum(r["pingpongs"] for r in runs)
+        avg_results[label] = {
+            "avg_handovers": total_ho / n,
+            "avg_pingpongs": total_pp / n,
+            "avg_pingpong_rate": total_pp / total_ho if total_ho > 0 else 0.0,
+            "avg_rlf": sum(r["rlf"] for r in runs) / n,
+            "avg_dho": sum(r["dho"] for r in runs) / n,
+        }
 
     # ===========================
     # Final Summary
     # ===========================
     print()
-    print(Fore.GREEN + Style.BRIGHT + f"{'='*70}")
-    print(Fore.GREEN + Style.BRIGHT + f"  RESULTS SUMMARY (SEED {SEED})")
-    print(Fore.GREEN + Style.BRIGHT + f"{'='*70}")
+    print(Fore.GREEN + Style.BRIGHT + f"{'='*80}")
+    print(
+        Fore.GREEN
+        + Style.BRIGHT
+        + f"  AVERAGE RESULTS ({SEED_COUNT} seeds, master SEED={SEED})"
+    )
+    print(Fore.GREEN + Style.BRIGHT + f"{'='*80}")
 
-    header = f"{'Algorithm':<16} | {'Handovers':>10} | {'PingPongs':>10} | {'PP Rate':>10} | {'RLF':>6} | {'DHO':>8}"
+    header = f"{'Algorithm':<20} | {'Avg HO':>8} | {'Avg PP':>8} | {'PP Rate':>10} | {'Avg RLF':>8} | {'Avg DHO':>8}"
     print(Fore.WHITE + Style.BRIGHT + header)
     print(Fore.WHITE + "-" * len(header))
 
+    # Find best CHO weight (lowest avg handovers among CHO variants)
+    cho_labels = [l for l in algo_labels if l != "DDQN"]
+    best_label = min(cho_labels, key=lambda l: avg_results[l]["avg_handovers"])
+
     for label in algo_labels:
-        data = results[label]
-        pp_rate = data["pingpong_rate"] * 100
-        color = Fore.MAGENTA if label == "DDQN" else Fore.CYAN
+        d = avg_results[label]
+        pp_rate_str = f"{d['avg_pingpong_rate'] * 100:.1f}%"
+
+        if label == "DDQN":
+            color = Fore.MAGENTA
+        elif label == best_label:
+            color = Fore.GREEN
+        else:
+            color = Fore.CYAN
+
+        marker = " <-- BEST" if label == best_label else ""
         print(
-            color + f"{label:<16} | {data['handovers']:>10} | "
-            f"{data['pingpongs']:>10} | {pp_rate:>9.1f}% | "
-            f"{data['rlf']:>6} | {data['dho']:>8.2f}"
+            color
+            + f"{label:<20} | {d['avg_handovers']:>8.1f} | {d['avg_pingpongs']:>8.1f} | {pp_rate_str:>10} | {d['avg_rlf']:>8.1f} | {d['avg_dho']:>8.2f}"
+            + Style.BRIGHT
+            + marker
         )
+
+    # Extract best weight
+    best_sw = float(best_label.split("_s")[1].split("_q")[0])
+    best_qw = 1 - best_sw
+    print()
+    print(Fore.GREEN + Style.BRIGHT + f"{'='*80}")
+    print(
+        Fore.GREEN
+        + Style.BRIGHT
+        + f"  BEST: similarity_weight={best_sw}, q_weight={best_qw}"
+    )
+    print(
+        Fore.GREEN
+        + Style.BRIGHT
+        + f"  Avg Handovers: {avg_results[best_label]['avg_handovers']:.1f}"
+        + f"  |  Avg PingPongs: {avg_results[best_label]['avg_pingpongs']:.1f}"
+        + f"  |  PP Rate: {avg_results[best_label]['avg_pingpong_rate'] * 100:.1f}%"
+    )
+    print(Fore.GREEN + Style.BRIGHT + f"{'='*80}")
 
     print()
 
