@@ -27,8 +27,9 @@ class Functions:
         return [e / denominator for e in exps]
 
     @staticmethod
-    def cos_similarity(angle1: float, angle2: float) -> float:
-        return cos(radians(angle1 - angle2))
+    def cos_similarity(angle1: float, angle2: float, normalized: bool = False) -> float:
+        sim = cos(radians(angle1 - angle2))
+        return (sim + 1) / 2.0 if normalized else sim
 
     @staticmethod
     def weighted_sum(values: list[float], weights: list[float]):

@@ -22,8 +22,7 @@ SEED = 1
 SIMULATION_TIME = 900
 STEP_LENGTH = 0.1
 
-# CHO weight sweep: q_weight fixed at 1, similarity_weight as tiebreaker (low values)
-Q_WEIGHT = 1
+# CHO weight sweep: q_weight = 1 - similarity_weight (weights sum to 1)
 SIMILARITY_WEIGHTS = [0.001, 0.005, 0.01, 0.02, 0.05, 0.08, 0.1, 0.15, 0.2, 0.3]
 
 
@@ -143,7 +142,7 @@ if __name__ == "__main__":
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     print(Fore.CYAN + Style.BRIGHT + f"--- Starting CHO Test (SEED {SEED}) ---")
-    print(Fore.YELLOW + f"  Q weight: {Q_WEIGHT} (fixed)")
+    print(Fore.YELLOW + f"  Q weight: 1 - sim_weight")
     print(Fore.YELLOW + f"  Similarity weights: {SIMILARITY_WEIGHTS}")
 
     # Base Stations
@@ -167,7 +166,7 @@ if __name__ == "__main__":
     generate_trace(SEED)
     fcd_data: list[dict[int, CarFcdData]] = FcdParser.parse_fcd_trace()
 
-    algo_labels = ["DDQN"] + [f"CHO_s{sw}_q{Q_WEIGHT}" for sw in SIMILARITY_WEIGHTS]
+    algo_labels = ["DDQN"] + [f"CHO_s{sw}_q{1 - sw}" for sw in SIMILARITY_WEIGHTS]
     results = {}
 
     # ===========================
@@ -201,7 +200,8 @@ if __name__ == "__main__":
     # DDQN_CHO with weight sweep
     # ===========================
     for sw in SIMILARITY_WEIGHTS:
-        label = f"CHO_s{sw}_q{Q_WEIGHT}"
+        qw = 1 - sw
+        label = f"CHO_s{sw}_q{qw}"
 
         for bs in bs_list:
             bs.connected_ues.clear()
@@ -216,13 +216,13 @@ if __name__ == "__main__":
             print_logs_on_movement=False,
             handover_algorithm=HandoverAlgorithm.DDQN_CHO,
             cho_similarity_weight=sw,
-            cho_q_weight=Q_WEIGHT,
+            cho_q_weight=qw,
         )
 
         print(
             Fore.CYAN
             + Style.BRIGHT
-            + f"  [{run_name}] Simulating CHO (sim={sw}, q={Q_WEIGHT})..."
+            + f"  [{run_name}] Simulating CHO (sim={sw}, q={qw})..."
         )
 
         results[label] = simulation(

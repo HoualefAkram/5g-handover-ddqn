@@ -38,7 +38,7 @@ class UserEquipment:
         print_logs_on_movement: bool = False,
         handover_algorithm: HandoverAlgorithm = HandoverAlgorithm.A3_RSRP_3GPP,
         cho_similarity_weight: float = 0.05,
-        cho_q_weight: float = 1,
+        cho_q_weight: float = 0.95,
     ):
         self.id: int = id
         self.g_rx: float = g_rx  # 0 to +2 dBi
@@ -329,7 +329,7 @@ class UserEquipment:
     def check_handover_ddqn(
         self,
         similarity_weight: float = 0.05,
-        q_weight: float = 1,
+        q_weight: float = 0.95,
     ):
         """DDQN + cosine similarity tiebreaker. State matches check_handover_ddqn_only."""
         weights = [similarity_weight, q_weight]
@@ -379,8 +379,11 @@ class UserEquipment:
         indexed.sort(key=lambda x: x[1], reverse=True)
         top_2 = indexed[:2]
 
-        tower1_idx, tower1_q = top_2[0]
-        tower2_idx, tower2_q = top_2[1]
+        tower1_idx, raw_q1 = top_2[0]
+        tower2_idx, raw_q2 = top_2[1]
+        softmax_qs = Functions.softmax_all([raw_q1, raw_q2])
+        tower1_q = softmax_qs[0]
+        tower2_q = softmax_qs[1]
 
         tower1 = top_4_towers[tower1_idx]
         tower2 = top_4_towers[tower2_idx]
@@ -388,10 +391,14 @@ class UserEquipment:
         # 5- Cosine similarity tiebreaker
         angle_ue = self.angle
         similarity_tower1 = Functions.cos_similarity(
-            angle_ue, Functions.bearing(pointA=self.latlng, pointB=tower1.latlng)
+            angle_ue,
+            Functions.bearing(pointA=self.latlng, pointB=tower1.latlng),
+            normalized=True,
         )
         similarity_tower2 = Functions.cos_similarity(
-            angle_ue, Functions.bearing(pointA=self.latlng, pointB=tower2.latlng)
+            angle_ue,
+            Functions.bearing(pointA=self.latlng, pointB=tower2.latlng),
+            normalized=True,
         )
 
         score_tower_1 = Functions.weighted_sum([similarity_tower1, tower1_q], weights)
