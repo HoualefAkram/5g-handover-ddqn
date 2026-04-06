@@ -259,7 +259,7 @@ if __name__ == "__main__":
     # A3 RSRP
     # ===========================
     if TEST_A3_RSRP:
-        a3_rsrp_logger = Logger(logdir=LOGDIR, name="3_A3_RSRP_LONDON(15 min)")
+        a3_rsrp_logger = Logger(logdir=LOGDIR, name="A3_RSRP_LONDON(15 min)")
         # Initialize User Equipment (Cars)
         num_ue = FcdParser.count_vehicles()
         a3_rsrp_cars: dict[int, UserEquipment] = {
@@ -297,7 +297,7 @@ if __name__ == "__main__":
             bs.connected_ues.clear()
         WaveUtils.reset_fading_state()
 
-        ddqn_logger = Logger(logdir=LOGDIR, name="3_DDQN_LONDON(15 min)")
+        ddqn_logger = Logger(logdir=LOGDIR, name="DDQN_CHO_LONDON(15 min)")
         UserEquipment.load_model(
             map_location="cuda" if torch.cuda.is_available() else "cpu"
         )
@@ -308,7 +308,7 @@ if __name__ == "__main__":
                 id=i,
                 all_bs=bs_list,
                 print_logs_on_movement=False,
-                handover_algorithm=HandoverAlgorithm.DDQN,
+                handover_algorithm=HandoverAlgorithm.DDQN_CHO,
             )
             for i in range(num_ue)
         }
@@ -316,7 +316,7 @@ if __name__ == "__main__":
         print(
             Fore.CYAN
             + Style.BRIGHT
-            + f"--- Simulating Movement and Network Logic (DDQN) for {num_ue} Vehicles ---"
+            + f"--- Simulating Movement and Network Logic (DDQN_CHO) for {num_ue} Vehicles ---"
         )
 
         simulation(

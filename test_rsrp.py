@@ -250,10 +250,10 @@ if __name__ == "__main__":
                 id=0,
                 all_bs=bs_list,
                 print_logs_on_movement=False,
-                handover_algorithm=HandoverAlgorithm.DDQN,
+                handover_algorithm=HandoverAlgorithm.DDQN_CHO,
             )
 
-            print(Fore.CYAN + Style.BRIGHT + f"  [{run_name}] Simulating DDQN...")
+            print(Fore.CYAN + Style.BRIGHT + f"  [{run_name}] Simulating DDQN_CHO...")
 
             result = simulation(
                 bs_list=bs_list,
