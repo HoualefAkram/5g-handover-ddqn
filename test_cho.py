@@ -31,11 +31,14 @@ SIMILARITY_WEIGHTS = [
     0.005,
     0.01,
     0.02,
+    0.03,
     0.05,
+    0.07,
     0.08,
     0.1,
     0.15,
     0.2,
+    0.25,
     0.3,
     0.4,
     0.5,
@@ -192,9 +195,7 @@ if __name__ == "__main__":
     # PERF loggers (1 per algorithm variant)
     perf_loggers = {}
     for label in algo_labels:
-        perf_loggers[label] = Logger(
-            logdir=LOGDIR, name=f"PERF_{label}_{timestamp}"
-        )
+        perf_loggers[label] = Logger(logdir=LOGDIR, name=f"PERF_{label}_{timestamp}")
 
     # ===========================
     # Seed Loop
