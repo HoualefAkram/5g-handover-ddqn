@@ -37,8 +37,8 @@ class UserEquipment:
         serving_bs: Optional[BaseTower] = None,
         print_logs_on_movement: bool = False,
         handover_algorithm: HandoverAlgorithm = HandoverAlgorithm.A3_RSRP_3GPP,
-        cho_similarity_weight: float = 0.05,
-        cho_q_weight: float = 0.95,
+        cho_similarity_weight: float = 0.03,
+        cho_q_weight: float = 0.97,
     ):
         self.id: int = id
         self.g_rx: float = g_rx  # 0 to +2 dBi
@@ -328,8 +328,8 @@ class UserEquipment:
 
     def check_handover_ddqn(
         self,
-        similarity_weight: float = 0.05,
-        q_weight: float = 0.95,
+        similarity_weight: float = 0.03,
+        q_weight: float = 0.97,
     ):
         """DDQN + cosine similarity tiebreaker. State matches check_handover_ddqn_only."""
         weights = [similarity_weight, q_weight]
