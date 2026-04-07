@@ -377,6 +377,53 @@ def plot_rsrp_ema(csv_path: Path, span: int = 100):
     print(f"  [PLOT] {out.name}")
 
 
+def plot_rsrp_ema_zoomed(csv_path: Path, span: int = 100):
+    """RSRP EMA with y-axis zoomed to data range so differences are visible."""
+    data = _read_rsrp_csv(csv_path)
+    alpha = 2.0 / (span + 1)
+
+    ema_data = {}
+    global_min, global_max = 1.0, 0.0
+
+    for algo in ALGORITHMS:
+        steps, vals = data[algo]
+        vals_arr = np.array(vals)
+        ema = np.empty_like(vals_arr)
+        ema[0] = vals_arr[0]
+        for i in range(1, len(vals_arr)):
+            ema[i] = alpha * vals_arr[i] + (1 - alpha) * ema[i - 1]
+        ema_data[algo] = (np.array(steps), ema)
+        global_min = min(global_min, ema.min())
+        global_max = max(global_max, ema.max())
+
+    # Add padding and convert to percentage
+    pad = (global_max - global_min) * 0.15
+    y_lo = max(0, global_min - pad)
+    y_hi = min(1, global_max + pad)
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    for algo in ALGORITHMS:
+        steps, ema = ema_data[algo]
+        ax.plot(steps, ema * 100, color=ALGO_COLORS[algo], linewidth=2,
+                label=ALGO_DISPLAY[algo])
+
+    ax.set_ylim(y_lo * 100, y_hi * 100)
+    ax.set_xlabel("Simulation Timestep", fontsize=12)
+    ax.set_ylabel("RSRP Signal Quality (%)", fontsize=12)
+    ax.set_title(
+        f"RSRP — Exponential Moving Average (span={span}, zoomed)",
+        fontsize=14, fontweight="bold",
+    )
+    ax.legend(fontsize=11)
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    out = CSV_DIR.parent / "rsrp_ema_zoomed.png"
+    fig.savefig(out, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  [PLOT] {out.name}")
+
+
 # ===================================================================
 # Main
 # ===================================================================
@@ -393,5 +440,6 @@ if __name__ == "__main__":
     plot_rsrp_kde(rsrp_csv)
     plot_rsrp_raw(rsrp_csv)
     plot_rsrp_ema(rsrp_csv)
+    plot_rsrp_ema_zoomed(rsrp_csv)
 
     print("\nDone.")
