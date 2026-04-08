@@ -1,7 +1,7 @@
 """
 Data extraction and visualization for 5G Handover DDQN simulation results.
 
-Reads TensorBoard event files from outputs/runs/, produces CSVs in ignored/csv/,
+Reads TensorBoard event files from outputs/runs/, produces CSVs in plotter/csv/,
 and generates Matplotlib/Seaborn visualizations.
 """
 
@@ -21,7 +21,7 @@ from tensorboard.backend.event_processing.event_accumulator import EventAccumula
 # ---------------------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 RUNS_DIR = BASE_DIR / "outputs" / "runs"
-CSV_DIR = BASE_DIR / "ignored" / "csv"
+CSV_DIR = BASE_DIR / "plotter" / "csv"
 
 TRAINING_RUN = "Training_20260405_134307"
 TIMESTAMP = "20260407_151337"
@@ -55,6 +55,7 @@ def load_ea(run_name: str) -> EventAccumulator:
 # Phase 1 - CSV Extraction
 # ===================================================================
 
+
 # --- 1a. Training Metrics CSV ---
 def extract_training_csv() -> Path:
     ea = load_ea(TRAINING_RUN)
@@ -73,33 +74,34 @@ def extract_training_csv() -> Path:
     return path
 
 
-# --- 1b. Performance Metrics CSV (per-seed from SEED files) ---
+# --- 1b. Performance Metrics CSV (from PERF running-average files) ---
 def extract_performance_csv() -> Path:
-    rows = []  # (algorithm, seed, handovers, pingpongs)
+    rows = []  # (algorithm, seed_step, avg_handovers, avg_pingpongs, pingpong_rate)
     for algo in ALGORITHMS:
-        seed_handovers = []
-        seed_pingpongs = []
-        for seed_idx in range(1, SEED_COUNT + 1):
-            run = f"SEED{str(seed_idx).zfill(2)}_{algo}_LONDON_{TIMESTAMP}"
-            ea = load_ea(run)
-            ho = ea.Scalars("UE_0/TOTAL_HANDOVERS")[-1].value
-            pp = ea.Scalars("UE_0/TOTAL_PINGPONG")[-1].value
-            rows.append((algo, seed_idx, ho, pp))
-            seed_handovers.append(ho)
-            seed_pingpongs.append(pp)
-        # Aggregate rows: sum and average
-        rows.append((algo, "SUM", sum(seed_handovers), sum(seed_pingpongs)))
-        rows.append((
-            algo,
-            "AVG",
-            sum(seed_handovers) / SEED_COUNT,
-            sum(seed_pingpongs) / SEED_COUNT,
-        ))
+        ea = load_ea(f"PERF_{algo}_LONDON_{TIMESTAMP}")
+        ho_events = ea.Scalars("Performance/AVERAGE_HANDOVERS")
+        pp_events = ea.Scalars("Performance/AVERAGE_PINGPONG")
+        pr_events = ea.Scalars("Performance/PINGPONG_RATE")
+        ho_by_step = {e.step: e.value for e in ho_events}
+        pp_by_step = {e.step: e.value for e in pp_events}
+        pr_by_step = {e.step: e.value for e in pr_events}
+
+        for step in sorted(ho_by_step):
+            rows.append(
+                (algo, step, ho_by_step[step], pp_by_step[step], pr_by_step[step])
+            )
+
+        # Final step (10) is already sum/10; multiply back for SUM row
+        avg_ho = ho_by_step[SEED_COUNT]
+        avg_pp = pp_by_step[SEED_COUNT]
+        avg_pr = pr_by_step[SEED_COUNT]
+        rows.append((algo, "SUM", avg_ho * SEED_COUNT, avg_pp * SEED_COUNT, avg_pr))
+        rows.append((algo, "AVG", avg_ho, avg_pp, avg_pr))
 
     path = CSV_DIR / "performance_metrics.csv"
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["algorithm", "seed", "handovers", "pingpongs"])
+        w.writerow(["algorithm", "seed", "handovers", "pingpongs", "pingpong_rate"])
         for r in rows:
             w.writerow(r)
     print(f"  [CSV] {path.name}: {len(rows)} rows")
@@ -132,6 +134,7 @@ def extract_rsrp_csv() -> Path:
 # ===================================================================
 # Phase 2 - Visualizations
 # ===================================================================
+
 
 def plot_training(csv_path: Path):
     """Multi-axis training plot: Reward, Loss, Epsilon."""
@@ -166,7 +169,9 @@ def plot_training(csv_path: Path):
     ax3 = ax1.twinx()
     ax3.spines["right"].set_position(("axes", 1.12))
     ax3.set_ylabel("Epsilon", color=color_e, fontsize=12)
-    ax3.plot(episodes, epsilons, color=color_e, alpha=0.8, linewidth=0.8, label="Epsilon")
+    ax3.plot(
+        episodes, epsilons, color=color_e, alpha=0.8, linewidth=0.8, label="Epsilon"
+    )
     ax3.tick_params(axis="y", labelcolor=color_e)
 
     # Combined legend
@@ -203,14 +208,31 @@ def plot_performance_bars(csv_path: Path):
     width = 0.32
 
     fig, ax = plt.subplots(figsize=(8, 5))
-    bars1 = ax.bar(x - width / 2, ho_vals, width, label="Handovers",
-                   color=colors, edgecolor="black", linewidth=0.5)
-    bars2 = ax.bar(x + width / 2, pp_vals, width, label="Pingpongs",
-                   color=colors, edgecolor="black", linewidth=0.5,
-                   hatch="///", alpha=0.75)
+    bars1 = ax.bar(
+        x - width / 2,
+        ho_vals,
+        width,
+        label="Handovers",
+        color=colors,
+        edgecolor="black",
+        linewidth=0.5,
+    )
+    bars2 = ax.bar(
+        x + width / 2,
+        pp_vals,
+        width,
+        label="Pingpongs",
+        color=colors,
+        edgecolor="black",
+        linewidth=0.5,
+        hatch="///",
+        alpha=0.75,
+    )
 
     ax.set_ylabel("Count", fontsize=12)
-    ax.set_title("Average Handovers & Pingpongs (10 Seeds)", fontsize=14, fontweight="bold")
+    ax.set_title(
+        "Average Handovers & Pingpongs (10 Seeds)", fontsize=14, fontweight="bold"
+    )
     ax.set_xticks(x)
     ax.set_xticklabels(x_labels, fontsize=11)
     ax.legend(fontsize=10)
@@ -218,9 +240,15 @@ def plot_performance_bars(csv_path: Path):
     # Value annotations
     for bar in list(bars1) + list(bars2):
         h = bar.get_height()
-        ax.annotate(f"{h:.1f}", xy=(bar.get_x() + bar.get_width() / 2, h),
-                    xytext=(0, 4), textcoords="offset points",
-                    ha="center", va="bottom", fontsize=9)
+        ax.annotate(
+            f"{h:.1f}",
+            xy=(bar.get_x() + bar.get_width() / 2, h),
+            xytext=(0, 4),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+        )
 
     ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
     fig.tight_layout()
@@ -253,7 +281,9 @@ def plot_rsrp_kde(csv_path: Path):
 
     ax.set_xlabel("Averaged RSRP (Normalized)", fontsize=12)
     ax.set_ylabel("Density", fontsize=12)
-    ax.set_title("RSRP Distribution (KDE) Across Algorithms", fontsize=14, fontweight="bold")
+    ax.set_title(
+        "RSRP Distribution (KDE) Across Algorithms", fontsize=14, fontweight="bold"
+    )
     ax.legend(fontsize=11)
     fig.tight_layout()
     out = CSV_DIR.parent / "rsrp_kde.png"
@@ -283,23 +313,46 @@ def plot_performance_bars_sum(csv_path: Path):
     width = 0.32
 
     fig, ax = plt.subplots(figsize=(8, 5))
-    bars1 = ax.bar(x - width / 2, ho_vals, width, label="Handovers",
-                   color=colors, edgecolor="black", linewidth=0.5)
-    bars2 = ax.bar(x + width / 2, pp_vals, width, label="Pingpongs",
-                   color=colors, edgecolor="black", linewidth=0.5,
-                   hatch="///", alpha=0.75)
+    bars1 = ax.bar(
+        x - width / 2,
+        ho_vals,
+        width,
+        label="Handovers",
+        color=colors,
+        edgecolor="black",
+        linewidth=0.5,
+    )
+    bars2 = ax.bar(
+        x + width / 2,
+        pp_vals,
+        width,
+        label="Pingpongs",
+        color=colors,
+        edgecolor="black",
+        linewidth=0.5,
+        hatch="///",
+        alpha=0.75,
+    )
 
     ax.set_ylabel("Count", fontsize=12)
-    ax.set_title("Total Handovers & Pingpongs (Sum of 10 Seeds)", fontsize=14, fontweight="bold")
+    ax.set_title(
+        "Total Handovers & Pingpongs (Sum of 10 Seeds)", fontsize=14, fontweight="bold"
+    )
     ax.set_xticks(x)
     ax.set_xticklabels(x_labels, fontsize=11)
     ax.legend(fontsize=10)
 
     for bar in list(bars1) + list(bars2):
         h = bar.get_height()
-        ax.annotate(f"{h:.0f}", xy=(bar.get_x() + bar.get_width() / 2, h),
-                    xytext=(0, 4), textcoords="offset points",
-                    ha="center", va="bottom", fontsize=9)
+        ax.annotate(
+            f"{h:.0f}",
+            xy=(bar.get_x() + bar.get_width() / 2, h),
+            xytext=(0, 4),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+        )
 
     ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
     fig.tight_layout()
@@ -307,6 +360,109 @@ def plot_performance_bars_sum(csv_path: Path):
     fig.savefig(out, dpi=200, bbox_inches="tight")
     plt.close(fig)
     print(f"  [PLOT] {out.name}")
+
+
+def _plot_ho_pprate_bars(csv_path: Path, agg_key: str, title: str, out_name: str):
+    """Dual-axis grouped bar chart: Handovers (left) and Pingpong Rate % (right)."""
+    data_ho = {}
+    data_pr = {}
+    with open(csv_path) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row["seed"] == agg_key:
+                algo = row["algorithm"]
+                data_ho[algo] = float(row["handovers"])
+                data_pr[algo] = float(row["pingpong_rate"]) * 100  # to %
+
+    x_labels = [ALGO_DISPLAY[a] for a in ALGORITHMS]
+    ho_vals = [data_ho[a] for a in ALGORITHMS]
+    pr_vals = [data_pr[a] for a in ALGORITHMS]
+    colors = [ALGO_COLORS[a] for a in ALGORITHMS]
+
+    x = np.arange(len(ALGORITHMS))
+    width = 0.32
+
+    fig, ax1 = plt.subplots(figsize=(8, 5))
+
+    bars1 = ax1.bar(
+        x - width / 2,
+        ho_vals,
+        width,
+        label="Handovers",
+        color=colors,
+        edgecolor="black",
+        linewidth=0.5,
+    )
+    ax1.set_ylabel("Handovers", fontsize=12)
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(x_labels, fontsize=11)
+    ax1.yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
+
+    ax2 = ax1.twinx()
+    bars2 = ax2.bar(
+        x + width / 2,
+        pr_vals,
+        width,
+        label="Pingpong Rate",
+        color=colors,
+        edgecolor="black",
+        linewidth=0.5,
+        hatch="///",
+        alpha=0.75,
+    )
+    ax2.set_ylabel("Pingpong Rate (%)", fontsize=12)
+
+    for bar in bars1:
+        h = bar.get_height()
+        ax1.annotate(
+            f"{h:.1f}",
+            xy=(bar.get_x() + bar.get_width() / 2, h),
+            xytext=(0, 4),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+        )
+    for bar in bars2:
+        h = bar.get_height()
+        ax2.annotate(
+            f"{h:.1f}%",
+            xy=(bar.get_x() + bar.get_width() / 2, h),
+            xytext=(0, 4),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+        )
+
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2, labels1 + labels2, fontsize=10)
+
+    fig.suptitle(title, fontsize=14, fontweight="bold")
+    fig.tight_layout()
+    out = CSV_DIR.parent / out_name
+    fig.savefig(out, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  [PLOT] {out.name}")
+
+
+def plot_performance_pprate_avg(csv_path: Path):
+    _plot_ho_pprate_bars(
+        csv_path,
+        "AVG",
+        "Average Handovers & Pingpong Rate (10 Seeds)",
+        "performance_pprate_avg.png",
+    )
+
+
+def plot_performance_pprate_sum(csv_path: Path):
+    _plot_ho_pprate_bars(
+        csv_path,
+        "SUM",
+        "Total Handovers & Pingpong Rate (Sum of 10 Seeds)",
+        "performance_pprate_sum.png",
+    )
 
 
 def _read_rsrp_csv(csv_path: Path) -> dict[str, tuple[list, list]]:
@@ -331,12 +487,20 @@ def plot_rsrp_raw(csv_path: Path):
     fig, ax = plt.subplots(figsize=(12, 5))
     for algo in ALGORITHMS:
         steps, vals = data[algo]
-        ax.plot(steps, vals, color=ALGO_COLORS[algo], alpha=0.6,
-                linewidth=0.5, label=ALGO_DISPLAY[algo])
+        ax.plot(
+            steps,
+            vals,
+            color=ALGO_COLORS[algo],
+            alpha=0.6,
+            linewidth=0.5,
+            label=ALGO_DISPLAY[algo],
+        )
 
     ax.set_xlabel("Simulation Timestep", fontsize=12)
     ax.set_ylabel("Averaged RSRP (Normalized)", fontsize=12)
-    ax.set_title("Raw RSRP Over Time (Averaged Across 10 Seeds)", fontsize=14, fontweight="bold")
+    ax.set_title(
+        "Raw RSRP Over Time (Averaged Across 10 Seeds)", fontsize=14, fontweight="bold"
+    )
     ax.legend(fontsize=11)
     fig.tight_layout()
     out = CSV_DIR.parent / "rsrp_raw.png"
@@ -363,8 +527,13 @@ def plot_rsrp_ema(csv_path: Path, span: int = 100):
             ema[i] = alpha * vals_arr[i] + (1 - alpha) * ema[i - 1]
 
         ax.plot(steps, vals_arr, color=ALGO_COLORS[algo], alpha=0.15, linewidth=0.4)
-        ax.plot(steps, ema, color=ALGO_COLORS[algo], linewidth=1.8,
-                label=f"{ALGO_DISPLAY[algo]} (EMA {span})")
+        ax.plot(
+            steps,
+            ema,
+            color=ALGO_COLORS[algo],
+            linewidth=1.8,
+            label=f"{ALGO_DISPLAY[algo]} (EMA {span})",
+        )
 
     ax.set_xlabel("Simulation Timestep", fontsize=12)
     ax.set_ylabel("RSRP (Normalized)", fontsize=12)
@@ -405,15 +574,21 @@ def plot_rsrp_ema_zoomed(csv_path: Path, span: int = 100):
 
     for algo in ALGORITHMS:
         steps, ema = ema_data[algo]
-        ax.plot(steps, ema * 100, color=ALGO_COLORS[algo], linewidth=2,
-                label=ALGO_DISPLAY[algo])
+        ax.plot(
+            steps,
+            ema * 100,
+            color=ALGO_COLORS[algo],
+            linewidth=2,
+            label=ALGO_DISPLAY[algo],
+        )
 
     ax.set_ylim(y_lo * 100, y_hi * 100)
     ax.set_xlabel("Simulation Timestep", fontsize=12)
     ax.set_ylabel("RSRP Signal Quality (%)", fontsize=12)
     ax.set_title(
         f"RSRP — Exponential Moving Average (span={span}, zoomed)",
-        fontsize=14, fontweight="bold",
+        fontsize=14,
+        fontweight="bold",
     )
     ax.legend(fontsize=11)
     ax.grid(True, alpha=0.3)
@@ -439,6 +614,8 @@ if __name__ == "__main__":
     plot_performance_bars_sum(perf_csv)
     plot_rsrp_kde(rsrp_csv)
     plot_rsrp_raw(rsrp_csv)
+    plot_performance_pprate_avg(perf_csv)
+    plot_performance_pprate_sum(perf_csv)
     plot_rsrp_ema(rsrp_csv)
     plot_rsrp_ema_zoomed(rsrp_csv)
 
