@@ -328,8 +328,8 @@ class UserEquipment:
 
     def check_handover_ddqn(
         self,
-        similarity_weight: float = 0.03,
-        q_weight: float = 0.97,
+        similarity_weight: float = 0.30,
+        q_weight: float = 0.70,
     ):
         """DDQN + cosine similarity tiebreaker. State matches check_handover_ddqn_only."""
         weights = [similarity_weight, q_weight]
@@ -374,40 +374,29 @@ class UserEquipment:
         state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
         with torch.no_grad():
             q_vals = [q.item() for q in self.__model(state_tensor)[0]]
-        # 4- Top 2 by raw Q-value
-        indexed = list(enumerate(q_vals))
-        indexed.sort(key=lambda x: x[1], reverse=True)
+        # 4- DDQN argmax decision
+        action = int(np.argmax(q_vals))
+        target_bs = top_4_towers[action]
+        # If DDQN says stay, stay — no similarity override
+        if target_bs == self.serving_bs:
+            return None
+        # 5- DDQN says handover: use similarity to pick among top-2 candidates
+        indexed = sorted(enumerate(q_vals), key=lambda x: x[1], reverse=True)
         top_2 = indexed[:2]
-
-        tower1_idx, raw_q1 = top_2[0]
-        tower2_idx, raw_q2 = top_2[1]
-        softmax_qs = Functions.softmax_all([raw_q1, raw_q2])
-        tower1_q = softmax_qs[0]
-        tower2_q = softmax_qs[1]
-
-        tower1 = top_4_towers[tower1_idx]
-        tower2 = top_4_towers[tower2_idx]
-
-        # 5- Cosine similarity tiebreaker
+        # Softmax over the top-2 Q-values
+        softmax_qs = Functions.softmax_all([top_2[0][1], top_2[1][1]])
+        # Score with similarity
         angle_ue = self.angle
-        similarity_tower1 = Functions.cos_similarity(
-            angle_ue,
-            Functions.bearing(pointA=self.latlng, pointB=tower1.latlng),
-            normalized=True,
-        )
-        similarity_tower2 = Functions.cos_similarity(
-            angle_ue,
-            Functions.bearing(pointA=self.latlng, pointB=tower2.latlng),
-            normalized=True,
-        )
-
-        score_tower_1 = Functions.weighted_sum([similarity_tower1, tower1_q], weights)
-        score_tower_2 = Functions.weighted_sum([similarity_tower2, tower2_q], weights)
-
-        # 6- Decision
-        target_bs_idx = tower1_idx if score_tower_1 > score_tower_2 else tower2_idx
-        target_bs: BaseTower = top_4_towers[target_bs_idx]
-
+        scores = []
+        for rank, (idx, _) in enumerate(top_2):
+            similarity = Functions.cos_similarity(
+                angle_ue,
+                Functions.bearing(pointA=self.latlng, pointB=top_4_towers[idx].latlng),
+                normalized=True,
+            )
+            scores.append(Functions.weighted_sum([similarity, softmax_qs[rank]], weights))
+        best = 0 if scores[0] > scores[1] else 1
+        target_bs = top_4_towers[top_2[best][0]]
         if target_bs == self.serving_bs:
             return None
         return target_bs
