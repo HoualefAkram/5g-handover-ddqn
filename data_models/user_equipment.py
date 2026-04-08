@@ -37,8 +37,8 @@ class UserEquipment:
         serving_bs: Optional[BaseTower] = None,
         print_logs_on_movement: bool = False,
         handover_algorithm: HandoverAlgorithm = HandoverAlgorithm.A3_RSRP_3GPP,
-        cho_similarity_weight: float = 0.03,
-        cho_q_weight: float = 0.97,
+        cho_similarity_weight: float = 0.30,
+        cho_q_weight: float = 0.70,
     ):
         self.id: int = id
         self.g_rx: float = g_rx  # 0 to +2 dBi
@@ -394,7 +394,9 @@ class UserEquipment:
                 Functions.bearing(pointA=self.latlng, pointB=top_4_towers[idx].latlng),
                 normalized=True,
             )
-            scores.append(Functions.weighted_sum([similarity, softmax_qs[rank]], weights))
+            scores.append(
+                Functions.weighted_sum([similarity, softmax_qs[rank]], weights)
+            )
         best = 0 if scores[0] > scores[1] else 1
         target_bs = top_4_towers[top_2[best][0]]
         if target_bs == self.serving_bs:
