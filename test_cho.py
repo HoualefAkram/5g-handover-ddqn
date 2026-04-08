@@ -21,7 +21,7 @@ from utils.logger import Logger
 SHOW_TENSORBOARD_OUTPUT = True
 LOGDIR = "outputs/runs"
 SEED = 42
-SEED_COUNT = 5
+SEED_COUNT = 10
 SIMULATION_TIME = 900
 STEP_LENGTH = 0.1
 
