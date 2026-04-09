@@ -25,7 +25,7 @@ SHOW_TENSORBOARD_OUTPUT = True
 FOLIUM_OUTPUT = "outputs/folium/simulation.html"
 LOGDIR = "outputs/runs"
 SEED = 42
-SEED_COUNT = 10
+SEED_COUNT = 5
 SIMULATION_TIME = 900
 STEP_LENGTH = 0.1
 

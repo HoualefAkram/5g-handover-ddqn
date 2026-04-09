@@ -25,17 +25,18 @@ SEED_COUNT = 10
 SIMULATION_TIME = 900
 STEP_LENGTH = 0.1
 
-# CHO weight sweep: q_weight = 1 - similarity_weight (weights sum to 1)
-SIMILARITY_WEIGHTS = [
-    0.10,  # 10%
-    0.15,  # 15%
-    0.20,  # 20%
-    0.25,  # 25%
-    0.30,  # 30%
-    0.35,  # 35%
-    0.40,  # 40%
-    0.45,  # 45%
-    0.50,  # 50%
+# CHO confidence-gated sweep:
+# confidence_threshold: normalized Q-gap above which DDQN is trusted (no similarity)
+# similarity_weight / q_weight: 50/50 fixed for the tiebreaker
+CONFIDENCE_THRESHOLDS = [
+    0.10,
+    0.15,
+    0.20,
+    0.25,
+    0.30,
+    0.35,
+    0.40,
+    0.50,
 ]
 
 
@@ -153,10 +154,10 @@ if __name__ == "__main__":
     print(
         Fore.CYAN
         + Style.BRIGHT
-        + f"--- Starting CHO Weight Sweep ({SEED_COUNT} seeds) ---"
+        + f"--- Starting CHO Confidence Sweep ({SEED_COUNT} seeds) ---"
     )
     print(Fore.YELLOW + f"  Master SEED: {SEED}")
-    print(Fore.YELLOW + f"  Similarity weights: {SIMILARITY_WEIGHTS}")
+    print(Fore.YELLOW + f"  Confidence thresholds: {CONFIDENCE_THRESHOLDS}")
 
     # Base Stations
     bs_list: list[BaseTower] = TowerDownloader.get_towers_from_cache()
@@ -180,8 +181,8 @@ if __name__ == "__main__":
     seeds = [rng.randint(0, 10000) for _ in range(SEED_COUNT)]
     seed_pad = len(str(SEED_COUNT))
 
-    # Labels: DDQN baseline + all CHO variants
-    algo_labels = ["DDQN"] + [f"CHO_s{sw}_q{1 - sw}" for sw in SIMILARITY_WEIGHTS]
+    # Labels: DDQN baseline + all CHO confidence variants
+    algo_labels = ["DDQN"] + [f"CHO_ct{ct}" for ct in CONFIDENCE_THRESHOLDS]
 
     # all_results[label] = list of result dicts (one per seed)
     all_results = {label: [] for label in algo_labels}
@@ -237,10 +238,9 @@ if __name__ == "__main__":
         )
         ddqn_logger.close()
 
-        # --- DDQN_CHO with weight sweep ---
-        for sw in SIMILARITY_WEIGHTS:
-            qw = 1 - sw
-            label = f"CHO_s{sw}_q{qw}"
+        # --- DDQN_CHO with confidence threshold sweep ---
+        for ct in CONFIDENCE_THRESHOLDS:
+            label = f"CHO_ct{ct}"
 
             for bs in bs_list:
                 bs.connected_ues.clear()
@@ -254,14 +254,15 @@ if __name__ == "__main__":
                 all_bs=bs_list,
                 print_logs_on_movement=False,
                 handover_algorithm=HandoverAlgorithm.DDQN_CHO,
-                cho_similarity_weight=sw,
-                cho_q_weight=qw,
+                cho_confidence_threshold=ct,
+                cho_similarity_weight=0.50,
+                cho_q_weight=0.50,
             )
 
             print(
                 Fore.CYAN
                 + Style.BRIGHT
-                + f"  [{run_name}] Simulating CHO (sim={sw}, q={qw})..."
+                + f"  [{run_name}] Simulating CHO (confidence_threshold={ct})..."
             )
 
             all_results[label].append(
@@ -344,9 +345,9 @@ if __name__ == "__main__":
     print(Fore.WHITE + Style.BRIGHT + header)
     print(Fore.WHITE + "-" * len(header))
 
-    # Find best CHO weight (lowest avg handovers among CHO variants)
+    # Find best CHO variant (lowest avg pingpong rate among CHO variants)
     cho_labels = [l for l in algo_labels if l != "DDQN"]
-    best_label = min(cho_labels, key=lambda l: avg_results[l]["avg_handovers"])
+    best_label = min(cho_labels, key=lambda l: avg_results[l]["avg_pingpong_rate"])
 
     for label in algo_labels:
         d = avg_results[label]
@@ -367,15 +368,14 @@ if __name__ == "__main__":
             + marker
         )
 
-    # Extract best weight
-    best_sw = float(best_label.split("_s")[1].split("_q")[0])
-    best_qw = 1 - best_sw
+    # Extract best threshold
+    best_ct = float(best_label.split("_ct")[1])
     print()
     print(Fore.GREEN + Style.BRIGHT + f"{'='*80}")
     print(
         Fore.GREEN
         + Style.BRIGHT
-        + f"  BEST: similarity_weight={best_sw}, q_weight={best_qw}"
+        + f"  BEST: confidence_threshold={best_ct}"
     )
     print(
         Fore.GREEN

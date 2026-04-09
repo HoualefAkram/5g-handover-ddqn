@@ -37,8 +37,9 @@ class UserEquipment:
         serving_bs: Optional[BaseTower] = None,
         print_logs_on_movement: bool = False,
         handover_algorithm: HandoverAlgorithm = HandoverAlgorithm.A3_RSRP_3GPP,
-        cho_similarity_weight: float = 0.30,
-        cho_q_weight: float = 0.70,
+        cho_confidence_threshold: float = 0.60,
+        cho_similarity_weight: float = 0.50,
+        cho_q_weight: float = 0.50,
     ):
         self.id: int = id
         self.g_rx: float = g_rx  # 0 to +2 dBi
@@ -51,6 +52,7 @@ class UserEquipment:
         # (bs_id, timestep) after each connection
         self.connection_history: list[tuple[int, float]] = []
         self.handover_algorithm = handover_algorithm
+        self.cho_confidence_threshold = cho_confidence_threshold
         self.cho_similarity_weight = cho_similarity_weight
         self.cho_q_weight = cho_q_weight
         self.speed = 0
@@ -169,10 +171,7 @@ class UserEquipment:
             case HandoverAlgorithm.A3_RSRP_3GPP:
                 target_bs = self.check_handover_3gpp_rsrp()
             case HandoverAlgorithm.DDQN_CHO:
-                target_bs = self.check_handover_ddqn(
-                    similarity_weight=self.cho_similarity_weight,
-                    q_weight=self.cho_q_weight,
-                )
+                target_bs = self.check_handover_ddqn()
             case HandoverAlgorithm.DDQN:
                 target_bs = self.check_handover_ddqn_only()
             case HandoverAlgorithm.NONE:
@@ -328,11 +327,11 @@ class UserEquipment:
 
     def check_handover_ddqn(
         self,
-        similarity_weight: float = 0.30,
-        q_weight: float = 0.70,
+        confidence_threshold: float = 0.60,
+        similarity_weight: float = 0.50,
+        q_weight: float = 0.50,
     ):
-        """DDQN + cosine similarity tiebreaker. State matches check_handover_ddqn_only."""
-        weights = [similarity_weight, q_weight]
+        """DDQN + confidence-gated CHO: only apply similarity tiebreaker when DDQN is uncertain."""
         if not self.generated_reports:
             return None
         report = self.generated_reports[-1]
@@ -343,7 +342,7 @@ class UserEquipment:
         top_4_towers = Filters.top_k_towers(all_bs=self.all_bs, report=report, k=4)
         if self.serving_bs not in top_4_towers:
             top_4_towers[-1] = self.serving_bs
-        # 2- Build state (matches env obs space: rsrp, rsrp_trend, serving_one_hot, speed, time_since_ho)
+        # 2- Build state (matches env obs space)
         top_4_rsrp = [
             WaveUtils.normalize_rsrp_index(report.rsrp_values.get(bs.id, 0), bs.radio)
             for bs in top_4_towers
@@ -370,32 +369,34 @@ class UserEquipment:
             [top_4_rsrp, rsrp_trend, serving_one_hot, [norm_speed], [time_since_ho]],
             dtype=np.float32,
         )
-        # 3- DDQN raw Q-values
+        # 3- DDQN Q-values
         state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
         with torch.no_grad():
             q_vals = [q.item() for q in self.__model(state_tensor)[0]]
-        # 4- DDQN argmax decision
         action = int(np.argmax(q_vals))
         target_bs = top_4_towers[action]
-        # If DDQN says stay, stay — no similarity override
         if target_bs == self.serving_bs:
             return None
-        # 5- DDQN says handover: use similarity to pick among top-2 candidates
+        # 4- Confidence gate (scale-invariant): normalized Q-gap relative to full spread
         indexed = sorted(enumerate(q_vals), key=lambda x: x[1], reverse=True)
         top_2 = indexed[:2]
-        # Softmax over the top-2 Q-values
-        softmax_qs = Functions.softmax_all([top_2[0][1], top_2[1][1]])
-        # Score with similarity
-        angle_ue = self.angle
+        q_range = max(q_vals) - min(q_vals)
+        normalized_gap = (top_2[0][1] - top_2[1][1]) / q_range if q_range > 0 else 0
+        if normalized_gap > confidence_threshold:
+            # DDQN is confident — trust its decision
+            return target_bs 
+        # 5- DDQN is uncertain — use weighted sum of Q-blend + similarity to break tie
+        q_blend = [0.5 + normalized_gap / 2, 0.5 - normalized_gap / 2]
+        weights = [similarity_weight, q_weight]
         scores = []
         for rank, (idx, _) in enumerate(top_2):
             similarity = Functions.cos_similarity(
-                angle_ue,
+                self.angle,
                 Functions.bearing(pointA=self.latlng, pointB=top_4_towers[idx].latlng),
                 normalized=True,
             )
             scores.append(
-                Functions.weighted_sum([similarity, softmax_qs[rank]], weights)
+                Functions.weighted_sum([similarity, q_blend[rank]], weights)
             )
         best = 0 if scores[0] > scores[1] else 1
         target_bs = top_4_towers[top_2[best][0]]

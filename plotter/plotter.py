@@ -24,9 +24,9 @@ RUNS_DIR = BASE_DIR / "outputs" / "runs"
 CSV_DIR = BASE_DIR / "plotter" / "csv"
 
 TRAINING_RUN = "Training_20260405_134307"
-TIMESTAMP = "20260407_151337"
+TIMESTAMP = "20260409_023812"
 ALGORITHMS = ["A3_RSRP", "DDQN", "DDQN_CHO"]
-SEED_COUNT = 10
+SEED_COUNT = 5
 
 ALGO_DISPLAY = {
     "A3_RSRP": "A3-RSRP (3GPP)",
@@ -181,7 +181,7 @@ def plot_training(csv_path: Path):
 
     fig.suptitle("DDQN Training Metrics", fontsize=14, fontweight="bold")
     fig.tight_layout()
-    out = CSV_DIR.parent / "training_plot.png"
+    out = CSV_DIR.parent / "reward_loss.png"
     fig.savefig(out, dpi=200, bbox_inches="tight")
     plt.close(fig)
     print(f"  [PLOT] {out.name}")
