@@ -21,22 +21,22 @@ from utils.logger import Logger
 SHOW_TENSORBOARD_OUTPUT = True
 LOGDIR = "outputs/runs"
 SEED = 42
-SEED_COUNT = 10
+SEED_COUNT = 5
 SIMULATION_TIME = 900
 STEP_LENGTH = 0.1
 
 # CHO confidence-gated sweep:
-# confidence_threshold: normalized Q-gap above which DDQN is trusted (no similarity)
+# confidence_threshold: softmax P(best) above which DDQN is trusted (no similarity)
 # similarity_weight / q_weight: 50/50 fixed for the tiebreaker
 CONFIDENCE_THRESHOLDS = [
-    0.10,
-    0.15,
-    0.20,
-    0.25,
-    0.30,
-    0.35,
-    0.40,
-    0.50,
+    0.55,
+    0.58,
+    0.60,
+    0.63,
+    0.65,
+    0.68,
+    0.70,
+    0.75,
 ]
 
 
@@ -372,11 +372,7 @@ if __name__ == "__main__":
     best_ct = float(best_label.split("_ct")[1])
     print()
     print(Fore.GREEN + Style.BRIGHT + f"{'='*80}")
-    print(
-        Fore.GREEN
-        + Style.BRIGHT
-        + f"  BEST: confidence_threshold={best_ct}"
-    )
+    print(Fore.GREEN + Style.BRIGHT + f"  BEST: confidence_threshold={best_ct}")
     print(
         Fore.GREEN
         + Style.BRIGHT

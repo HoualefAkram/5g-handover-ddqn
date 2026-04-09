@@ -171,7 +171,11 @@ class UserEquipment:
             case HandoverAlgorithm.A3_RSRP_3GPP:
                 target_bs = self.check_handover_3gpp_rsrp()
             case HandoverAlgorithm.DDQN_CHO:
-                target_bs = self.check_handover_ddqn()
+                target_bs = self.check_handover_ddqn(
+                    confidence_threshold=self.cho_confidence_threshold,
+                    similarity_weight=self.cho_similarity_weight,
+                    q_weight=self.cho_q_weight,
+                )
             case HandoverAlgorithm.DDQN:
                 target_bs = self.check_handover_ddqn_only()
             case HandoverAlgorithm.NONE:
@@ -377,16 +381,15 @@ class UserEquipment:
         target_bs = top_4_towers[action]
         if target_bs == self.serving_bs:
             return None
-        # 4- Confidence gate (scale-invariant): normalized Q-gap relative to full spread
+        # 4- Softmax Confidence Gate (stable for Q-values in [-1, 1])
         indexed = sorted(enumerate(q_vals), key=lambda x: x[1], reverse=True)
         top_2 = indexed[:2]
-        q_range = max(q_vals) - min(q_vals)
-        normalized_gap = (top_2[0][1] - top_2[1][1]) / q_range if q_range > 0 else 0
-        if normalized_gap > confidence_threshold:
+        softmax_qs = Functions.softmax_all([top_2[0][1], top_2[1][1]])
+        if softmax_qs[0] >= confidence_threshold:
             # DDQN is confident — trust its decision
-            return target_bs 
-        # 5- DDQN is uncertain — use weighted sum of Q-blend + similarity to break tie
-        q_blend = [0.5 + normalized_gap / 2, 0.5 - normalized_gap / 2]
+            return target_bs
+        # 5- DDQN is uncertain — use weighted sum of softmax Q + similarity to break tie
+        q_blend = softmax_qs
         weights = [similarity_weight, q_weight]
         scores = []
         for rank, (idx, _) in enumerate(top_2):
@@ -395,9 +398,7 @@ class UserEquipment:
                 Functions.bearing(pointA=self.latlng, pointB=top_4_towers[idx].latlng),
                 normalized=True,
             )
-            scores.append(
-                Functions.weighted_sum([similarity, q_blend[rank]], weights)
-            )
+            scores.append(Functions.weighted_sum([similarity, q_blend[rank]], weights))
         best = 0 if scores[0] > scores[1] else 1
         target_bs = top_4_towers[top_2[best][0]]
         if target_bs == self.serving_bs:
