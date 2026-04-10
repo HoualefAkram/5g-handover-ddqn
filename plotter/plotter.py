@@ -676,6 +676,49 @@ def plot_rsrp_violin(csv_path: Path):
     print(f"  [PLOT] {out.name}")
 
 
+def plot_rsrp_fft(csv_path: Path):
+    """FFT magnitude spectrum of RSRP signals for each algorithm."""
+    algo_rsrp = {a: [] for a in ALGORITHMS}
+    with open(csv_path) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            for algo in ALGORITHMS:
+                val = row[algo]
+                if val:
+                    algo_rsrp[algo].append(float(val))
+
+    fig, ax = plt.subplots(figsize=(12, 5))
+
+    for algo in ALGORITHMS:
+        signal = np.array(algo_rsrp[algo])
+        signal = signal - signal.mean()  # remove DC component
+        n = len(signal)
+        fft_mag = np.abs(np.fft.rfft(signal)) / n
+        freqs = np.fft.rfftfreq(n)
+        # skip DC bin (index 0)
+        ax.plot(
+            freqs[1:],
+            fft_mag[1:],
+            color=ALGO_COLORS[algo],
+            alpha=0.8,
+            linewidth=1.2,
+            label=ALGO_DISPLAY[algo],
+        )
+
+    ax.set_xlabel("Normalized Frequency", fontsize=12)
+    ax.set_ylabel("Magnitude", fontsize=12)
+    ax.set_title(
+        "FFT of RSRP Signal Across Algorithms", fontsize=14, fontweight="bold"
+    )
+    ax.legend(fontsize=11)
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    out = CSV_DIR.parent / "rsrp_fft.png"
+    fig.savefig(out, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  [PLOT] {out.name}")
+
+
 def _read_rsrp_csv(csv_path: Path) -> dict[str, tuple[list, list]]:
     """Read RSRP CSV and return {algo: (steps, values)} with no gaps."""
     algo_steps = {a: [] for a in ALGORITHMS}
@@ -842,5 +885,6 @@ if __name__ == "__main__":
     plot_reduction_vs_a3(perf_csv)
     plot_rsrp_boxplot(rsrp_csv)
     plot_rsrp_violin(rsrp_csv)
+    plot_rsrp_fft(rsrp_csv)
 
     print("\nDone.")
