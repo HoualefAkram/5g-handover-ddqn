@@ -37,9 +37,9 @@ class UserEquipment:
         serving_bs: Optional[BaseTower] = None,
         print_logs_on_movement: bool = False,
         handover_algorithm: HandoverAlgorithm = HandoverAlgorithm.A3_RSRP_3GPP,
-        cho_confidence_threshold: float = 0.52,
-        cho_similarity_weight: float = 0.05,
-        cho_q_weight: float = 0.95,
+        cho_confidence_threshold: float = 0.51,
+        cho_similarity_weight: float = 0.01,
+        cho_q_weight: float = 0.99,
     ):
         self.id: int = id
         self.g_rx: float = g_rx  # 0 to +2 dBi
@@ -59,6 +59,7 @@ class UserEquipment:
         self.angle = 0
         self.rlf_count = 0
         self.dho_time = 0
+        self.log_cho_decision = True
 
         self.__in_rlf = False
 
@@ -331,9 +332,9 @@ class UserEquipment:
 
     def check_handover_ddqn(
         self,
-        confidence_threshold: float = 0.52,
-        similarity_weight: float = 0.05,
-        q_weight: float = 0.95,
+        confidence_threshold: float = 0.51,
+        similarity_weight: float = 0.01,
+        q_weight: float = 0.99,
     ):
         """DDQN + confidence-gated CHO: only apply similarity tiebreaker when DDQN is uncertain."""
         if not self.generated_reports:
@@ -379,29 +380,91 @@ class UserEquipment:
             q_vals = [q.item() for q in self.__model(state_tensor)[0]]
         action = int(np.argmax(q_vals))
         target_bs = top_4_towers[action]
+
+        if self.print_logs_on_movement:
+            q_str = ", ".join(
+                f"BS{top_4_towers[i].id}={q_vals[i]:.4f}"
+                for i in range(len(top_4_towers))
+            )
+            print(
+                Fore.CYAN
+                + f"[CHO] UE {self.id} | Q-values: [{q_str}] | DDQN pick: BS {target_bs.id}"
+            )
+
         if target_bs == self.serving_bs:
+            if self.print_logs_on_movement:
+                print(
+                    Fore.CYAN
+                    + f"[CHO] UE {self.id} | DDQN chose serving BS {self.serving_bs.id} — no handover"
+                )
             return None
         # 4- Softmax Confidence Gate (stable for Q-values in [-1, 1])
         indexed = sorted(enumerate(q_vals), key=lambda x: x[1], reverse=True)
         top_2 = indexed[:2]
         softmax_qs = Functions.softmax_all([top_2[0][1], top_2[1][1]])
+
+        if self.print_logs_on_movement:
+            print(
+                Fore.CYAN
+                + f"[CHO] UE {self.id} | Softmax confidence: BS{top_4_towers[top_2[0][0]].id}={softmax_qs[0]:.4f}, "
+                + f"BS{top_4_towers[top_2[1][0]].id}={softmax_qs[1]:.4f} | threshold={confidence_threshold}"
+            )
+
         if softmax_qs[0] >= confidence_threshold:
             # DDQN is confident — trust its decision
+            if self.print_logs_on_movement:
+                print(
+                    Fore.GREEN
+                    + f"[CHO] UE {self.id} | Confident ({softmax_qs[0]:.4f} >= {confidence_threshold}) — handover to BS {target_bs.id}"
+                )
             return target_bs
         # 5- DDQN is uncertain — use weighted sum of softmax Q + similarity to break tie
         q_blend = softmax_qs
         weights = [similarity_weight, q_weight]
         scores = []
+        similarities = []
         for rank, (idx, _) in enumerate(top_2):
             similarity = Functions.cos_similarity(
                 self.angle,
                 Functions.bearing(pointA=self.latlng, pointB=top_4_towers[idx].latlng),
                 normalized=True,
             )
+            similarities.append(similarity)
             scores.append(Functions.weighted_sum([similarity, q_blend[rank]], weights))
         best = 0 if scores[0] > scores[1] else 1
+        ddqn_original = top_4_towers[top_2[0][0]]
         target_bs = top_4_towers[top_2[best][0]]
+
+        if self.log_cho_decision:
+            print(
+                Fore.YELLOW
+                + f"[CHO] UE {self.id} | DDQN uncertain — softmax {softmax_qs[0]:.4f} < threshold {confidence_threshold} "
+                + f"(top-2 softmax: BS{top_4_towers[top_2[0][0]].id}={softmax_qs[0]:.4f}, BS{top_4_towers[top_2[1][0]].id}={softmax_qs[1]:.4f}) "
+                + f"— falling back to weighted sum"
+            )
+            for rank, (idx, _) in enumerate(top_2):
+                print(
+                    Fore.YELLOW
+                    + f"[CHO] UE {self.id} | Weighted sum for BS{top_4_towers[idx].id}: "
+                    + f"sim={similarities[rank]:.4f} * {similarity_weight} + q={q_blend[rank]:.4f} * {q_weight} = {scores[rank]:.4f}"
+                )
+            if ddqn_original != target_bs:
+                print(
+                    Fore.MAGENTA
+                    + f"[CHO] UE {self.id} | Decision ALTERED by weighted sum: BS {ddqn_original.id} → BS {target_bs.id}"
+                )
+            else:
+                print(
+                    Fore.GREEN
+                    + f"[CHO] UE {self.id} | Weighted sum confirmed DDQN pick: BS {target_bs.id}"
+                )
+
         if target_bs == self.serving_bs:
+            if self.log_cho_decision:
+                print(
+                    Fore.CYAN
+                    + f"[CHO] UE {self.id} | Final target is serving BS {self.serving_bs.id} — no handover"
+                )
             return None
         return target_bs
 
