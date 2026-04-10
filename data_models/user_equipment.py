@@ -37,7 +37,7 @@ class UserEquipment:
         serving_bs: Optional[BaseTower] = None,
         print_logs_on_movement: bool = False,
         handover_algorithm: HandoverAlgorithm = HandoverAlgorithm.A3_RSRP_3GPP,
-        cho_confidence_threshold: float = 0.60,
+        cho_confidence_threshold: float = 0.55,
         cho_similarity_weight: float = 0.50,
         cho_q_weight: float = 0.50,
     ):
@@ -331,7 +331,7 @@ class UserEquipment:
 
     def check_handover_ddqn(
         self,
-        confidence_threshold: float = 0.60,
+        confidence_threshold: float = 0.55,
         similarity_weight: float = 0.50,
         q_weight: float = 0.50,
     ):

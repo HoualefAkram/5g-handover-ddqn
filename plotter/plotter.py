@@ -23,10 +23,40 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 RUNS_DIR = BASE_DIR / "outputs" / "runs"
 CSV_DIR = BASE_DIR / "plotter" / "csv"
 
-TRAINING_RUN = "Training_20260405_134307"
-TIMESTAMP = "20260409_041918"
 ALGORITHMS = ["A3_RSRP", "DDQN", "DDQN_CHO"]
 SEED_COUNT = 10
+
+
+def _detect_timestamp() -> str:
+    """Auto-detect the most recent PERF timestamp from runs directory."""
+    import re
+    pattern = re.compile(r"^PERF_\w+_LONDON_(\d{8}_\d{6})$")
+    timestamps = set()
+    if RUNS_DIR.is_dir():
+        for d in RUNS_DIR.iterdir():
+            m = pattern.match(d.name)
+            if m:
+                timestamps.add(m.group(1))
+    if not timestamps:
+        raise FileNotFoundError(f"No PERF_*_LONDON_* runs found in {RUNS_DIR}")
+    return max(timestamps)  # most recent
+
+
+def _detect_training_run() -> str | None:
+    """Auto-detect the most recent Training run, or None if absent."""
+    import re
+    pattern = re.compile(r"^Training_(\d{8}_\d{6})$")
+    matches = []
+    if RUNS_DIR.is_dir():
+        for d in RUNS_DIR.iterdir():
+            m = pattern.match(d.name)
+            if m:
+                matches.append(d.name)
+    return max(matches) if matches else None
+
+
+TIMESTAMP = _detect_timestamp()
+TRAINING_RUN = _detect_training_run()
 
 ALGO_DISPLAY = {
     "A3_RSRP": "A3-RSRP (3GPP)",
@@ -603,13 +633,23 @@ def plot_rsrp_ema_zoomed(csv_path: Path, span: int = 100):
 # Main
 # ===================================================================
 if __name__ == "__main__":
-    print("Phase 1: Extracting CSVs ...")
-    training_csv = extract_training_csv()
+    print(f"Detected PERF timestamp: {TIMESTAMP}")
+    print(f"Detected Training run:   {TRAINING_RUN or '(none)'}")
+
+    print("\nPhase 1: Extracting CSVs ...")
+    training_csv = None
+    if TRAINING_RUN:
+        training_csv = extract_training_csv()
+    else:
+        print("  [SKIP] No Training run found — skipping training CSV")
     perf_csv = extract_performance_csv()
     rsrp_csv = extract_rsrp_csv()
 
     print("\nPhase 2: Generating plots ...")
-    plot_training(training_csv)
+    if training_csv:
+        plot_training(training_csv)
+    else:
+        print("  [SKIP] No training data — skipping training plot")
     plot_performance_bars(perf_csv)
     plot_performance_bars_sum(perf_csv)
     plot_rsrp_kde(rsrp_csv)
