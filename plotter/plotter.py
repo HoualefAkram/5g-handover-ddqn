@@ -619,6 +619,63 @@ def plot_rsrp_boxplot(csv_path: Path):
     print(f"  [PLOT] {out.name}")
 
 
+def plot_rsrp_violin(csv_path: Path):
+    """Violin plot of RSRP distribution for each algorithm."""
+    algo_rsrp = {a: [] for a in ALGORITHMS}
+    with open(csv_path) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            for algo in ALGORITHMS:
+                val = row[algo]
+                if val:
+                    algo_rsrp[algo].append(float(val))
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    violin_data = [algo_rsrp[a] for a in ALGORITHMS]
+    parts = ax.violinplot(
+        violin_data,
+        positions=range(len(ALGORITHMS)),
+        showmeans=True,
+        showmedians=True,
+        widths=0.7,
+    )
+
+    for body, algo in zip(parts["bodies"], ALGORITHMS):
+        body.set_facecolor(ALGO_COLORS[algo])
+        body.set_alpha(0.7)
+        body.set_edgecolor("black")
+
+    parts["cmedians"].set_color("black")
+    parts["cmedians"].set_linewidth(1.5)
+    parts["cmeans"].set_color("#e74c3c")
+    parts["cmeans"].set_linewidth(1.2)
+    parts["cmeans"].set_linestyle("--")
+    for key in ("cbars", "cmins", "cmaxes"):
+        parts[key].set_color("black")
+        parts[key].set_linewidth(0.8)
+
+    ax.set_xticks(range(len(ALGORITHMS)))
+    ax.set_xticklabels([ALGO_DISPLAY[a] for a in ALGORITHMS], fontsize=11)
+    ax.set_ylabel("Averaged RSRP (Normalized)", fontsize=12)
+    ax.set_title(
+        "RSRP Distribution (Violin Plot) Across Algorithms",
+        fontsize=14,
+        fontweight="bold",
+    )
+    ax.legend(
+        [parts["cmedians"], parts["cmeans"]],
+        ["Median", "Mean"],
+        fontsize=10,
+    )
+    ax.grid(True, axis="y", alpha=0.3)
+    fig.tight_layout()
+    out = CSV_DIR.parent / "rsrp_violin.png"
+    fig.savefig(out, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  [PLOT] {out.name}")
+
+
 def _read_rsrp_csv(csv_path: Path) -> dict[str, tuple[list, list]]:
     """Read RSRP CSV and return {algo: (steps, values)} with no gaps."""
     algo_steps = {a: [] for a in ALGORITHMS}
@@ -784,5 +841,6 @@ if __name__ == "__main__":
     plot_rsrp_ema_zoomed(rsrp_csv)
     plot_reduction_vs_a3(perf_csv)
     plot_rsrp_boxplot(rsrp_csv)
+    plot_rsrp_violin(rsrp_csv)
 
     print("\nDone.")
