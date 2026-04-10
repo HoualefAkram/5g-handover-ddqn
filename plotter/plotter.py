@@ -495,6 +495,130 @@ def plot_performance_pprate_sum(csv_path: Path):
     )
 
 
+def plot_reduction_vs_a3(csv_path: Path):
+    """Bar chart showing DDQN / DDQN-CHO percentage reduction vs A3 baseline."""
+    data_ho = {}
+    data_pr = {}
+    with open(csv_path) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row["seed"] == "AVG":
+                algo = row["algorithm"]
+                data_ho[algo] = float(row["handovers"])
+                data_pr[algo] = float(row["pingpong_rate"]) * 100  # to %
+
+    base_ho = data_ho["A3_RSRP"]
+    base_pr = data_pr["A3_RSRP"]
+
+    algos = ["DDQN", "DDQN_CHO"]
+    ho_reductions = [(base_ho - data_ho[a]) / base_ho * 100 for a in algos]
+    pr_reductions = [(base_pr - data_pr[a]) / base_pr * 100 for a in algos]
+
+    x_labels = [ALGO_DISPLAY[a] for a in algos]
+
+    x = np.arange(len(algos))
+    width = 0.32
+    color_ho = "#3498db"
+    color_pr = "#e67e22"
+
+    fig, ax = plt.subplots(figsize=(7, 5))
+    bars1 = ax.bar(
+        x - width / 2,
+        ho_reductions,
+        width,
+        label="Handover Reduction",
+        color=color_ho,
+        edgecolor="black",
+        linewidth=0.5,
+    )
+    bars2 = ax.bar(
+        x + width / 2,
+        pr_reductions,
+        width,
+        label="Pingpong Rate Reduction",
+        color=color_pr,
+        edgecolor="black",
+        linewidth=0.5,
+        hatch="///",
+        alpha=0.75,
+    )
+
+    ax.set_ylabel("Reduction vs A3-RSRP (%)", fontsize=12)
+    ax.set_title(
+        "Improvement Over A3-RSRP Baseline (10 Seeds Avg)",
+        fontsize=14,
+        fontweight="bold",
+    )
+    ax.set_xticks(x)
+    ax.set_xticklabels(x_labels, fontsize=11)
+    ax.legend(fontsize=10)
+
+    for bar in list(bars1) + list(bars2):
+        h = bar.get_height()
+        ax.annotate(
+            f"{h:.2f}%",
+            xy=(bar.get_x() + bar.get_width() / 2, h),
+            xytext=(0, 4),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+        )
+
+    ax.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.1f%%"))
+    fig.tight_layout()
+    out = CSV_DIR.parent / "reduction_vs_a3.png"
+    fig.savefig(out, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  [PLOT] {out.name}")
+
+
+def plot_rsrp_boxplot(csv_path: Path):
+    """Box plot of RSRP distribution for each algorithm."""
+    algo_rsrp = {a: [] for a in ALGORITHMS}
+    with open(csv_path) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            for algo in ALGORITHMS:
+                val = row[algo]
+                if val:
+                    algo_rsrp[algo].append(float(val))
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    box_data = [algo_rsrp[a] for a in ALGORITHMS]
+    bp = ax.boxplot(
+        box_data,
+        patch_artist=True,
+        labels=[ALGO_DISPLAY[a] for a in ALGORITHMS],
+        widths=0.5,
+        showfliers=True,
+        flierprops=dict(marker="o", markersize=3, alpha=0.4),
+    )
+
+    for patch, algo in zip(bp["boxes"], ALGORITHMS):
+        patch.set_facecolor(ALGO_COLORS[algo])
+        patch.set_alpha(0.7)
+        patch.set_edgecolor("black")
+
+    for median in bp["medians"]:
+        median.set_color("black")
+        median.set_linewidth(1.5)
+
+    ax.set_ylabel("Averaged RSRP (Normalized)", fontsize=12)
+    ax.set_title(
+        "RSRP Distribution (Box Plot) Across Algorithms",
+        fontsize=14,
+        fontweight="bold",
+    )
+    ax.grid(True, axis="y", alpha=0.3)
+    fig.tight_layout()
+    out = CSV_DIR.parent / "rsrp_boxplot.png"
+    fig.savefig(out, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  [PLOT] {out.name}")
+
+
 def _read_rsrp_csv(csv_path: Path) -> dict[str, tuple[list, list]]:
     """Read RSRP CSV and return {algo: (steps, values)} with no gaps."""
     algo_steps = {a: [] for a in ALGORITHMS}
@@ -658,5 +782,7 @@ if __name__ == "__main__":
     plot_performance_pprate_sum(perf_csv)
     plot_rsrp_ema(rsrp_csv)
     plot_rsrp_ema_zoomed(rsrp_csv)
+    plot_reduction_vs_a3(perf_csv)
+    plot_rsrp_boxplot(rsrp_csv)
 
     print("\nDone.")
