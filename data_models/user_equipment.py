@@ -37,9 +37,9 @@ class UserEquipment:
         serving_bs: Optional[BaseTower] = None,
         print_logs_on_movement: bool = False,
         handover_algorithm: HandoverAlgorithm = HandoverAlgorithm.A3_RSRP_3GPP,
-        cho_confidence_threshold: float = 0.60,
-        cho_similarity_weight: float = 0.05,
-        cho_q_weight: float = 0.95,
+        cho_confidence_threshold: float = 0.55,
+        cho_similarity_weight: float = 0.04,
+        cho_q_weight: float = 0.96,
     ):
         self.id: int = id
         self.g_rx: float = g_rx  # 0 to +2 dBi
@@ -331,9 +331,9 @@ class UserEquipment:
 
     def check_handover_ddqn(
         self,
-        confidence_threshold: float = 0.60,
-        similarity_weight: float = 0.05,
-        q_weight: float = 0.95,
+        confidence_threshold: float = 0.55,
+        similarity_weight: float = 0.04,
+        q_weight: float = 0.96,
     ):
         """DDQN + confidence-gated CHO: only apply similarity tiebreaker when DDQN is uncertain."""
         if not self.generated_reports:
