@@ -386,7 +386,7 @@ A two-stage decision process that combines DDQN with direction-aware scoring:
 5. **Weighted fallback** — for the top-2 candidates, compute:
    - `similarity` = cosine similarity between UE heading and bearing to tower (normalized to [0, 1])
    - `score = similarity_weight * similarity + q_weight * softmax_Q`
-   - Where `similarity_weight = clamp(Q_gap, 0, 1)` and `q_weight = 1 - similarity_weight`
+   - Where `q_weight = clamp(Q_gap, 0, 1)` and `similarity_weight = 1 - q_weight`
    - The candidate with the higher score wins
 
 This design lets the agent make fast decisions when confident, and only invokes the more expensive direction-aware tiebreaker when the Q-values are ambiguous.

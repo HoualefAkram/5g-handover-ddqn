@@ -412,8 +412,8 @@ class UserEquipment:
             return target_bs
         # 5- DDQN is uncertain — use weighted sum of softmax Q + similarity to break tie
         q_blend = softmax_qs
-        similarity_weight = min(max((top_2[0][1] - top_2[1][1]), 0.0), 1.0)
-        q_weight = 1 - similarity_weight
+        q_weight = min(max((top_2[0][1] - top_2[1][1]), 0.0), 1.0)
+        similarity_weight = 1 - q_weight
 
         weights = [similarity_weight, q_weight]
         scores = []
