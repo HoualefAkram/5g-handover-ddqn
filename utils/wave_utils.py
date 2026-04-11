@@ -35,7 +35,7 @@ class WaveUtils:
         WaveUtils.__fast_fading_rng.clear()
 
     @staticmethod
-    def get_resource_blocks(bandwidth_hz: float) -> int:
+    def get_resource_blocks(bandwidth_hz: float) -> int: #these RB are not used in the code
         rb_table = {
             5e6: 25,
             10e6: 52,
