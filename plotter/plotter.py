@@ -19,18 +19,20 @@ from tensorboard.backend.event_processing.event_accumulator import EventAccumula
 # ---------------------------------------------------------------------------
 # Global style — bold, visible text on every graph
 # ---------------------------------------------------------------------------
-plt.rcParams.update({
-    "font.weight":        "bold",
-    "axes.labelweight":   "bold",
-    "axes.titleweight":   "bold",
-    "figure.titleweight": "bold",
-    "font.size":          12,
-    "axes.labelsize":     13,
-    "axes.titlesize":     15,
-    "xtick.labelsize":    11,
-    "ytick.labelsize":    11,
-    "legend.fontsize":    11,
-})
+plt.rcParams.update(
+    {
+        "font.weight": "bold",
+        "axes.labelweight": "bold",
+        "axes.titleweight": "bold",
+        "figure.titleweight": "bold",
+        "font.size": 12,
+        "axes.labelsize": 13,
+        "axes.titlesize": 15,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11,
+        "legend.fontsize": 11,
+    }
+)
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -46,6 +48,7 @@ SEED_COUNT = 10
 def _detect_timestamp() -> str:
     """Auto-detect the most recent PERF timestamp from runs directory."""
     import re
+
     pattern = re.compile(r"^PERF_\w+_LONDON_(\d{8}_\d{6})$")
     timestamps = set()
     if RUNS_DIR.is_dir():
@@ -61,6 +64,7 @@ def _detect_timestamp() -> str:
 def _detect_training_run() -> str | None:
     """Auto-detect the most recent Training run, or None if absent."""
     import re
+
     pattern = re.compile(r"^Training_(\d{8}_\d{6})$")
     matches = []
     if RUNS_DIR.is_dir():
@@ -567,7 +571,7 @@ def plot_reduction_vs_a3(csv_path: Path):
     )
     ax.set_xticks(x)
     ax.set_xticklabels(x_labels, fontsize=11)
-    ax.legend(fontsize=10, loc="lower right")
+    ax.legend(fontsize=8, loc="upper center", bbox_to_anchor=(0.59, 1.0))
 
     for bar in list(bars1) + list(bars2):
         h = bar.get_height()
@@ -723,9 +727,7 @@ def plot_rsrp_fft(csv_path: Path):
 
     ax.set_xlabel("Normalized Frequency", fontsize=12)
     ax.set_ylabel("Magnitude", fontsize=12)
-    ax.set_title(
-        "FFT of RSRP Signal Across Algorithms", fontsize=14, fontweight="bold"
-    )
+    ax.set_title("FFT of RSRP Signal Across Algorithms", fontsize=14, fontweight="bold")
     ax.legend(fontsize=11)
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
@@ -878,9 +880,15 @@ def plot_rsrp_cloud(csv_path: Path):
         )
         # Overlay mean marker
         ax.scatter(
-            i, np.mean(vals), color=ALGO_COLORS[algo],
-            s=120, marker="D", edgecolors="black", linewidths=0.8,
-            zorder=5, label=f"{ALGO_DISPLAY[algo]} (mean={np.mean(vals):.4f})",
+            i,
+            np.mean(vals),
+            color=ALGO_COLORS[algo],
+            s=120,
+            marker="D",
+            edgecolors="black",
+            linewidths=0.8,
+            zorder=5,
+            label=f"{ALGO_DISPLAY[algo]} (mean={np.mean(vals):.4f})",
         )
 
     ax.set_xticks(range(len(ALGORITHMS)))
@@ -920,19 +928,29 @@ def plot_rsrp_raincloud(csv_path: Path):
 
         # Half-violin (KDE) on top side
         from scipy.stats import gaussian_kde
+
         kde = gaussian_kde(vals, bw_method=0.3)
         y_range = np.linspace(vals.min(), vals.max(), 300)
         density = kde(y_range)
         density = density / density.max() * 0.35  # scale width
         ax.fill_betweenx(
-            y_range, i - density, i,
-            color=color, alpha=0.5, edgecolor="black", linewidth=0.5,
+            y_range,
+            i - density,
+            i,
+            color=color,
+            alpha=0.5,
+            edgecolor="black",
+            linewidth=0.5,
         )
 
         # Boxplot on center
         bp = ax.boxplot(
-            vals, positions=[i], widths=0.08, vert=True,
-            patch_artist=True, showfliers=False,
+            vals,
+            positions=[i],
+            widths=0.08,
+            vert=True,
+            patch_artist=True,
+            showfliers=False,
             boxprops=dict(facecolor=color, alpha=0.9, edgecolor="black"),
             medianprops=dict(color="black", linewidth=1.5),
             whiskerprops=dict(color="black", linewidth=0.8),
@@ -942,8 +960,12 @@ def plot_rsrp_raincloud(csv_path: Path):
         # Jittered strip on bottom side
         jitter = rng.uniform(0.05, 0.3, size=len(vals))
         ax.scatter(
-            i + jitter, vals,
-            color=color, alpha=0.06, s=4, edgecolors="none",
+            i + jitter,
+            vals,
+            color=color,
+            alpha=0.06,
+            s=4,
+            edgecolors="none",
         )
 
     ax.set_xticks(range(len(ALGORITHMS)))
