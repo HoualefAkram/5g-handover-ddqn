@@ -332,9 +332,9 @@ class UserEquipment:
 
     def check_handover_ddqn(
         self,
-        confidence_threshold: float = 0.51,
-        similarity_weight: float = 0.01,
-        q_weight: float = 0.99,
+        confidence_threshold: float,
+        similarity_weight: float,
+        q_weight: float,
     ):
         """DDQN + confidence-gated CHO: only apply similarity tiebreaker when DDQN is uncertain."""
         if not self.generated_reports:
