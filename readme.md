@@ -1,6 +1,6 @@
 # 5G Handover DDQN — Learned Handover Optimization vs 3GPP A3 Baseline
 
-A Python-based simulator that models **User Equipment (UEs)** — cars — moving through a real city with real **Base Station Towers** fetched from OpenCellID. The simulator calculates real-time **RSRP** and **RSRQ** signal metrics using standard radio propagation models and compares a **3GPP A3 handover baseline** against a **trained Double DQN agent** for optimized handover decisions in 5G networks.
+A Python-based simulator that models **User Equipment (UEs)** — cars — moving through a real city with real **Base Station Towers** fetched from OpenCellID. The simulator calculates real-time **RSRP** and **RSRQ** signal metrics using standard radio propagation models and compares three handover strategies: the **3GPP A3 baseline**, a **trained Double DQN agent**, and a **confidence-gated DDQN with Conditional Handover (CHO)** for optimized handover decisions in 5G networks.
 
 ---
 
@@ -23,6 +23,9 @@ This simulator models that process from first principles using real map data, re
 - **Interactive map output** — Folium HTML visualization, auto-opened in browser
 - **TensorBoard logging** — per-UE and system-level metrics (RSRP, RSRQ, handovers, ping-pongs, RLF, handover delay) with auto-launch support
 - **DDQN training pipeline** — Gymnasium environment, Double DQN agent, experience replay, checkpointing, GPU support
+- **Confidence-gated CHO** — DDQN with softmax confidence thresholding and direction-aware cosine similarity fallback
+- **Multi-seed evaluation** — automated comparison of all three algorithms across 10+ random seeds with aggregated performance metrics
+- **Visualization pipeline** — Matplotlib/Seaborn chart generation from TensorBoard data (training curves, performance bars, RSRP distributions, statistical plots)
 
 ---
 
@@ -32,11 +35,11 @@ This simulator models that process from first principles using real map data, re
 5g-handover-ddqn/
 │
 ├── prepare.py                  # Data preparation — downloads maps, towers, generates SUMO traffic
-├── test.py                     # Main simulation — runs handover sim, logs metrics, renders map
+├── test.py                     # Main simulation — runs A3 vs DDQN_CHO, logs metrics, renders map
 │
 ├── data_models/
 │   ├── user_equipment.py       # UE class (car / mobile device) with handover logic
-│   ├── base_tower.py           # BaseTower class (cellular BS)
+│   ├── base_tower.py           # BaseTower class (cellular BS) with LTE/NR factory methods
 │   ├── latlng.py               # LatLng coordinate dataclass
 │   ├── ng_ran_report.py        # Signal measurement report (UE → BS)
 │   ├── car_fcd_data.py         # SUMO FCD trace data per vehicle
@@ -64,21 +67,33 @@ This simulator models that process from first principles using real map data, re
 │   ├── fcd_parser.py           # SUMO FCD XML parser
 │   └── logger.py               # TensorBoard logging (per-UE and global metrics)
 │
-├── test_rsrp.py                # A3 RSRP baseline testing with multiple seeds
-├── test_cho.py                 # CHO weight sweep testing
+├── plotter/
+│   ├── plotter.py              # Data extraction & visualization (TensorBoard → CSV → charts)
+│   ├── csv/                    # Extracted CSVs (training_metrics, performance_metrics, rsrp_distribution)
+│   ├── reward_loss.png         # Training reward/loss/epsilon curves
+│   ├── performance_bars.png    # Average handovers & ping-pongs per algorithm
+│   ├── rsrp_kde.png            # RSRP kernel density estimate per algorithm
+│   ├── rsrp_violin.png         # RSRP violin plot per algorithm
+│   ├── rsrp_boxplot.png        # RSRP box plot per algorithm
+│   └── ...                     # Additional RSRP and performance visualizations
 │
-├── architecture.md             # System architecture diagrams
+├── test_rsrp.py                # Multi-seed comparison of all 3 algorithms (A3, DDQN, DDQN_CHO)
+├── test_rsrp_cumulative.py     # Cumulative RSRP comparison with training data re-logging
+├── test_cho.py                 # CHO confidence threshold sweep (finds optimal threshold)
+│
+├── architecture.md             # System architecture diagrams (Mermaid)
 ├── sources.md                  # Technical references and design-choice justifications
 │
 ├── cache/
 │   ├── maps/                   # Cached OSM map files
-│   ├── towers/                 # Cached tower JSON data
+│   ├── towers/                 # Cached tower CSV + filtered JSON data
 │   └── training/               # Model checkpoints & replay buffer
 │
 ├── outputs/
 │   ├── sumo/                   # SUMO network, routes, FCD traces
 │   ├── folium/                 # HTML visualization output
-│   └── runs/                   # TensorBoard log directories (timestamped)
+│   ├── runs/                   # TensorBoard log directories (timestamped)
+│   └── final_ddqn_model.pth    # Exported trained model
 │
 └── .env                        # API keys (not committed)
 ```
@@ -91,7 +106,7 @@ This simulator models that process from first principles using real map data, re
 
 **Python dependencies:**
 ```bash
-pip install numpy folium requests python-dotenv colorama torch gymnasium tensorboard
+pip install numpy folium requests python-dotenv colorama torch gymnasium tensorboard matplotlib seaborn
 ```
 
 **SUMO (Simulation of Urban Mobility):**
@@ -116,22 +131,7 @@ This will:
 2. Download the full OpenCellID CSV database for the configured MCC, then filter LTE/NR towers within the bbox → cached to `cache/towers/` (skipped if bbox matches)
 3. Generate vehicle traffic using SUMO (netconvert → randomTrips → duarouter → simulation)
 
-### 3. Run Simulation & Evaluation
-
-```bash
-python test.py
-```
-
-This will:
-1. Load base stations from cached tower data
-2. Parse SUMO FCD traces for vehicle positions
-3. Run the 3GPP A3 RSRP baseline simulation (if `TEST_A3_RSRP = True`)
-4. Run the DDQN handover simulation (if `TEST_DDQN = True`, requires a trained model at `outputs/final_ddqn_model.pth`)
-5. Log per-UE and system-level metrics (RSRP, RSRQ, handovers, ping-pongs, averages) to TensorBoard
-6. Render an interactive map to `outputs/folium/simulation.html`
-7. Auto-launch TensorBoard for side-by-side comparison of A3 vs DDQN runs
-
-### 4. Train DDQN Agent
+### 3. Train DDQN Agent
 
 ```bash
 python -m rl.ddqn_agent
@@ -141,25 +141,71 @@ This will:
 1. Initialize the Gymnasium handover environment (generates new SUMO traffic each episode)
 2. Train a Double DQN agent with epsilon-greedy exploration
 3. Log training metrics (reward, loss, Q-values, handovers, ping-pongs) to TensorBoard
-4. Save checkpoints to `cache/training/` after each epoch
+4. Save checkpoints to `cache/training/` after each episode
 5. Export the final model to `outputs/final_ddqn_model.pth`
 
 Set `USE_GPU = True` (default) in `rl/ddqn_agent.py` to train on CUDA if available, or `False` to force CPU.
 
 > **Note:** The replay buffer (`cache/training/replay_buffer.pkl`) and checkpoint (`cache/training/ddqn_checkpoint.pth`) persist across runs for seamless resume. If you change the environment config (map, towers, observation shape), delete `cache/training/` before retraining to avoid stale data.
 
-### 5. Alternative Test Runners
+### 4. Run Simulation & Evaluation
 
 ```bash
-python test_rsrp.py    # A3 RSRP baseline with multiple seeds (10 runs, 900s each)
-python test_cho.py     # CHO weight sweep (similarity vs Q-value trade-off)
+python test.py
 ```
+
+This will:
+1. Load base stations from cached tower data
+2. Parse SUMO FCD traces for vehicle positions
+3. Run the 3GPP A3 RSRP baseline simulation (if `TEST_A3_RSRP = True`) with all UEs
+4. Run the DDQN-CHO handover simulation (if `TEST_DDQN = True`, requires a trained model at `outputs/final_ddqn_model.pth`) with all UEs
+5. Log per-UE and system-level metrics (RSRP, RSRQ, handovers, ping-pongs, RLF, handover delay) to TensorBoard
+6. Render an interactive map to `outputs/folium/simulation.html`
+7. Auto-launch TensorBoard for side-by-side comparison of A3 vs DDQN-CHO runs
+
+### 5. Multi-Seed Evaluation
+
+```bash
+python test_rsrp.py
+```
+
+Runs all three algorithms (A3_RSRP, DDQN, DDQN_CHO) on a single UE across 10 seeds (900s each), with:
+- Per-seed per-algorithm TensorBoard logs
+- Running-average PERF logs for convergence tracking
+- Aggregated summary table (handovers, ping-pongs, ping-pong rate, RLF, DHO)
+- Average RSRP per timestep across seeds
+
+```bash
+python test_rsrp_cumulative.py
+```
+
+Same as `test_rsrp.py` but logs **cumulative RSRP** (running sum) per timestep instead of instantaneous values. Also re-logs training reward and loss data for unified TensorBoard visualization.
+
+```bash
+python test_cho.py
+```
+
+CHO confidence threshold sweep — tests DDQN_CHO with multiple `confidence_threshold` values (0.55–0.75) against a pure DDQN baseline across 5 seeds. Reports the optimal threshold that minimizes ping-pong rate.
+
+### 6. Generate Plots
+
+```bash
+python plotter/plotter.py
+```
+
+Extracts data from TensorBoard event files and generates:
+- **Training curves** — reward, loss, and epsilon over episodes
+- **Performance bar charts** — average and total handovers/ping-pongs per algorithm
+- **Ping-pong rate comparison** — per-algorithm reduction vs A3 baseline
+- **RSRP distribution plots** — KDE, violin, box, raincloud, EMA, raw, FFT, and statistical bar charts
+
+Output CSVs are saved to `plotter/csv/` and PNG charts to `plotter/`.
 
 ---
 
 ## Configuration
 
-Simulation parameters are configured in `prepare.py` and `test.py`. The default area is in central London, UK:
+### Simulation Parameters (`prepare.py`)
 
 | Parameter | Default | Description |
 |---|---|---|
@@ -170,10 +216,24 @@ Simulation parameters are configured in `prepare.py` and `test.py`. The default 
 | `SIMULATION_TIME` | `300` | Simulation duration in seconds (5 minutes) |
 | `STEP_LENGTH` | `0.1` | Simulation step length in seconds (100 ms) |
 | `SPAWN_INTERVAL` | `5` | Vehicle spawn interval in seconds (SUMO randomTrips) |
-| `SHOW_FOLIUM_OUTPUT` | `True` | Auto-open HTML output in browser (`test.py`) |
-| `SHOW_TENSORBOARD_OUTPUT` | `True` | Auto-launch TensorBoard (`test.py`) |
-| `TEST_A3_RSRP` | `True` | Run 3GPP A3 RSRP baseline simulation (`test.py`) |
-| `TEST_DDQN` | `True` | Run DDQN handover simulation (`test.py`) |
+
+### Evaluation Flags (`test.py`)
+
+| Parameter | Default | Description |
+|---|---|---|
+| `TEST_A3_RSRP` | `True` | Run 3GPP A3 RSRP baseline simulation |
+| `TEST_DDQN` | `True` | Run DDQN-CHO handover simulation |
+| `SHOW_FOLIUM_OUTPUT` | `True` | Auto-open HTML map in browser |
+| `SHOW_TENSORBOARD_OUTPUT` | `True` | Auto-launch TensorBoard |
+
+### Multi-Seed Evaluation (`test_rsrp.py`)
+
+| Parameter | Default | Description |
+|---|---|---|
+| `SEED` | `42` | Master seed (generates child seeds deterministically) |
+| `SEED_COUNT` | `10` | Number of random seeds to evaluate |
+| `SIMULATION_TIME` | `900` | Per-seed simulation duration (15 minutes) |
+| `ALGORITHMS` | A3_RSRP, DDQN, DDQN_CHO | All three algorithms compared per seed |
 
 ### Training Hyperparameters (`rl/ddqn_agent.py`)
 
@@ -189,6 +249,14 @@ Simulation parameters are configured in `prepare.py` and `test.py`. The default 
 | `train_every` | `20` | Backprop frequency (every N environment steps) |
 | `batch_size` | `128` | Replay buffer sample size |
 | `min_buffer_size` | `1000` | Minimum experiences before training starts |
+| `max_buffer_size` | `50000` | Maximum replay buffer capacity (deque maxlen) |
+
+### CHO Parameters (`data_models/user_equipment.py`)
+
+| Parameter | Default | Description |
+|---|---|---|
+| `cho_confidence_threshold` | `0.55` | Softmax probability above which DDQN is trusted without CHO fallback |
+| `min_time_of_stay` | `1.0 s` | Cooldown period for handover penalty / ping-pong detection window |
 
 ---
 
@@ -284,31 +352,72 @@ noise (dBm) = -174 + 10·log10(bandwidth_hz) + noise_figure_db
 
 ---
 
-## Handover Logic
+## Handover Algorithms
 
-Implements the **3GPP A3 event**: a handover is triggered when:
+### A3_RSRP_3GPP — 3GPP A3 Event
+
+The standard 3GPP A3 event triggers a handover when:
 
 ```
 RSRP(neighbor) > RSRP(serving) + hysteresis
 ```
 
+- Comparison is done in **dBm** for fair inter-RAT evaluation (LTE/NR)
 - Default hysteresis: **2 dB**
-- Time-to-Trigger (TTT): **160 ms** — condition must hold for the last 160 ms of reports
+- Time-to-Trigger (TTT): **160 ms** — condition must hold across the last `ceil(TTT / dt) + 1` reports
 - Initial connection: UE automatically attaches to the strongest available tower
-- Decisions are evaluated at every simulation timestep
 
-### Radio Link Failure (RLF) Detection
+### DDQN — Pure Double DQN
+
+Top-4 tower filtering → build observation state → argmax Q-value → handover if target differs from serving tower.
+
+No post-processing or direction awareness — the agent's Q-value ranking is trusted directly.
+
+### DDQN_CHO — Confidence-Gated Conditional Handover
+
+A two-stage decision process that combines DDQN with direction-aware scoring:
+
+1. **Top-4 filtering** — select the 4 strongest towers by normalized RSRP (serving tower guaranteed a slot)
+2. **Build observation** — 14-feature state vector (see [Observation Space](#observation-space))
+3. **DDQN forward pass** — compute Q-values for all 4 candidate towers
+4. **Confidence gate** — compute softmax over the top-2 Q-values:
+   - If `softmax(Q_best) >= confidence_threshold` (default 0.55): **trust DDQN** and handover to its pick
+   - If below threshold: **DDQN is uncertain** — fall back to weighted scoring
+5. **Weighted fallback** — for the top-2 candidates, compute:
+   - `similarity` = cosine similarity between UE heading and bearing to tower (normalized to [0, 1])
+   - `score = similarity_weight * similarity + q_weight * softmax_Q`
+   - Where `similarity_weight = clamp(Q_gap, 0, 1)` and `q_weight = 1 - similarity_weight`
+   - The candidate with the higher score wins
+
+This design lets the agent make fast decisions when confident, and only invokes the more expensive direction-aware tiebreaker when the Q-values are ambiguous.
+
+### NONE — No Handover
+
+UE stays on its initial tower for the entire simulation. Used internally by the training environment (the RL agent controls handovers directly via actions).
+
+### Summary
+
+| Algorithm | Description |
+|---|---|
+| `A3_RSRP_3GPP` | Standard 3GPP A3 event with hysteresis and TTT |
+| `DDQN` | Pure DDQN (argmax Q-values, no post-processing) |
+| `DDQN_CHO` | Confidence-gated DDQN with direction-aware cosine similarity fallback |
+| `NONE` | No handover (stay on initial tower) |
+
+---
+
+## Radio Link Failure (RLF) Detection
 
 A simplified RSRP-based proxy for the 3GPP Qout mechanism. In the standard (TS 38.133 Section 8.1.1 for NR, TS 36.133 Section 7.6 for LTE), Qout is defined as 10% BLER of a hypothetical PDCCH — an SINR/BLER threshold, not RSRP. This simulator uses a per-RAT normalized RSRP threshold mapped to approximately **-116 dBm** as a practical cell-edge proxy:
 
 | RAT | Normalized Threshold | RSRP Equivalent |
 |---|---|---|
-| NR | `41/127 ≈ 0.323` | ≈ -116 dBm |
-| LTE | `25/97 ≈ 0.258` | ≈ -116 dBm |
+| NR | `41/127 = 0.323` | ~ -116 dBm |
+| LTE | `25/97 = 0.258` | ~ -116 dBm |
 
-When the serving cell RSRP falls below the threshold at any timestep, the UE's RLF counter increments by 1.
+When the serving cell RSRP falls below the threshold, the UE enters an RLF state. The RLF counter increments once per entry (not per timestep while below threshold) — it clears when RSRP recovers above the threshold.
 
-### Handover Interruption Time (DHO)
+## Handover Interruption Time (DHO)
 
 Each handover adds a fixed interruption delay to the UE's accumulated handover delay cost (`dho_time`), based on 3GPP intra-frequency known-cell requirements:
 
@@ -317,29 +426,45 @@ Each handover adds a fixed interruption delay to the UE's accumulated handover d
 | NR | 20 ms | TS 38.133 Section 8.2.2 |
 | LTE | 40 ms | TS 36.133 Section 8.1.1.1 |
 
-### Handover Algorithms
+## Ping-Pong Detection
 
-| Algorithm | Status | Description |
-|---|---|---|
-| `A3_RSRP_3GPP` | Implemented | Standard 3GPP A3 event with hysteresis and TTT |
-| `DDQN_CHO` | Implemented | Deep Double Q-Network with direction-aware conditional handover (bearing/cosine similarity re-ranking) |
-| `DDQN` | Implemented | Pure DDQN (argmax Q-values, no direction-aware post-processing) |
-| `NONE` | — | No handover (stay on initial tower) |
+A ping-pong handover is detected when the pattern A -> B -> A occurs in the connection history and the time spent on tower B is less than `min_time_of_stay` (1.0 s):
+
+```
+BS_A (t1) -> BS_B (t2) -> BS_A (t3)
+where A != B and (t3 - t2) < 1.0 s
+```
 
 ---
 
 ## Reinforcement Learning
 
-The project includes a full DDQN training pipeline for learned handover optimization:
+### QNetwork Architecture
 
-- **QNetwork** (`data_models/q_network.py`) — PyTorch `nn.Module` (14 → 256 → 128 → 64 → 4) with GELU activations, hard target-network update, and `from_state_dict` factory
-- **Gymnasium Environment** (`rl/handover_env.py`) — action space: choose 1 of top-4 base stations; observation: 4 normalized RSRP + 4 RSRP trend (delta from previous report) + 4 serving one-hot + 1 normalized speed + 1 normalized time since last handover = 14 features
-- **DDQN Agent** (`rl/ddqn_agent.py`) — Double DQN with experience replay, epsilon-greedy exploration, target network hard updates, and GPU support
-- **Replay Buffer** (`rl/replay_buffer.py`) — persistent experience replay with disk save/load
-- **Checkpoint Manager** (`rl/checkpoint_manager.py`) — saves/resumes training state (epoch, epsilon, networks, optimizer) with cross-device support
-- **Top-k Filtering** (`helpers/filters.py`) — selects the k best candidate towers by normalized RSRP score for the observation space
-- **Helper Functions** (`helpers/functions.py`) — softmax, cosine similarity, bearing calculation, and weighted sum used by the DDQN handover logic
-- **TensorBoard Logger** (`utils/logger.py`) — tracks per-UE metrics (RSRP, RSRQ, handovers, ping-pongs) and system-level metrics (averages, totals, ping-pong rate), plus training metrics (reward, loss, Q-values, epsilon)
+The neural network is a simple feedforward MLP:
+
+```
+Input (14) -> Linear(256) -> GELU -> Linear(128) -> GELU -> Linear(64) -> GELU -> Linear(4) -> Q-values
+```
+
+- Hard target-network updates (full weight copy)
+- `from_state_dict` factory for loading trained models
+
+### Observation Space
+
+The environment produces a 14-dimensional observation vector:
+
+| Features | Count | Range | Description |
+|---|---|---|---|
+| Normalized RSRP | 4 | [0, 1] | RSRP index / max_index for each top-4 tower |
+| RSRP trend | 4 | [-1, 1] | Delta between current and previous normalized RSRP per tower |
+| Serving one-hot | 4 | {0, 1} | Which of the 4 towers is currently serving |
+| Normalized speed | 1 | [0, 1] | UE speed / 30 m/s (clamped) |
+| Time since handover | 1 | [0, 1] | Normalized cooldown: 0 = just switched, 1 = fully cooled down |
+
+### Action Space
+
+`Discrete(4)` — choose one of the top-4 candidate base stations. If the chosen tower is already the serving tower, no handover occurs.
 
 ### Reward Design
 
@@ -370,6 +495,22 @@ Where `time_since_ho` is normalized to `[0, 1]` based on `min_time_of_stay`.
 
 This produces a penalty range of `0.0` (fully cooled down) to `0.5` (immediate re-switch), directly discouraging ping-pong handovers while allowing justified handovers after the cooldown.
 
+### Training Pipeline
+
+- **Gymnasium Environment** (`rl/handover_env.py`) — generates new SUMO traffic each episode, resets fading state, single-agent (UE 0) with `HandoverAlgorithm.NONE` (agent controls handovers via actions). Retries if agent has fewer than 10 timesteps.
+- **DDQN Agent** (`rl/ddqn_agent.py`) — Double DQN with epsilon-greedy exploration, Huber loss (SmoothL1), Adam optimizer, hard target network updates every 2 episodes
+- **Replay Buffer** (`rl/replay_buffer.py`) — deque-based with `maxlen=50000`, pickle persistence to disk
+- **Checkpoint Manager** (`rl/checkpoint_manager.py`) — saves/resumes training state (episode, epsilon, policy/target networks, optimizer) with cross-device support
+
+### Training Outputs
+
+| Output | Path | Description |
+|---|---|---|
+| Final model | `outputs/final_ddqn_model.pth` | Exported policy network state dict |
+| Checkpoint | `cache/training/ddqn_checkpoint.pth` | Full training state for resume |
+| Replay buffer | `cache/training/replay_buffer.pkl` | Persisted experience buffer |
+| TensorBoard | `outputs/runs/Training_*` | Training metrics per episode |
+
 ---
 
 ## TensorBoard Metrics
@@ -377,8 +518,8 @@ This produces a penalty range of `0.0` (fully cooled down) to `0.5` (immediate r
 ### Per-UE Metrics (tagged `UE_{id}/`)
 | Metric | Description |
 |---|---|
-| `RSRP` | Serving cell RSRP (dBm) per timestep |
-| `RSRQ` | Serving cell RSRQ (dB) per timestep |
+| `RSRP` | Serving cell RSRP (normalized) per timestep |
+| `RSRQ` | Serving cell RSRQ (index) per timestep |
 | `TOTAL_HANDOVERS` | Cumulative handover count |
 | `TOTAL_PINGPONG` | Cumulative ping-pong count |
 | `PINGPONG_RATE` | Ping-pong / handover ratio |
@@ -404,11 +545,42 @@ This produces a penalty range of `0.0` (fully cooled down) to `0.5` (immediate r
 ### Training Metrics (DDQN agent)
 | Metric | Description |
 |---|---|
-| `EPISODE_LENGTH` | Steps per training episode |
-| `TOTAL_REWARD` | Cumulative reward per episode |
-| `AVERAGE_MAX_Q` | Mean max Q-value per episode |
-| `AVERAGE_LOSS` | Mean Huber loss per episode |
-| `EPSILON` | Current exploration rate |
+| `Episode_Length` | Steps per training episode |
+| `Total_Reward` | Cumulative reward per episode |
+| `Average_Max_Q` | Mean max Q-value per episode |
+| `Average_Loss` | Mean Huber loss per episode |
+| `Epsilon` | Current exploration rate |
+
+---
+
+## Visualization Pipeline
+
+The `plotter/plotter.py` script reads TensorBoard event files and produces publication-ready charts:
+
+### Data Extraction (-> `plotter/csv/`)
+- `training_metrics.csv` — per-episode reward, loss, epsilon
+- `performance_metrics.csv` — per-seed and averaged handovers, ping-pongs, ping-pong rate
+- `rsrp_distribution.csv` — per-timestep averaged RSRP for each algorithm
+
+### Generated Charts (-> `plotter/`)
+| Chart | Description |
+|---|---|
+| `reward_loss.png` | Training reward + loss + epsilon (triple y-axis) |
+| `performance_bars.png` | Average handovers & ping-pongs grouped bar chart |
+| `performance_bars_sum.png` | Total (sum across seeds) handovers & ping-pongs |
+| `performance_pprate_avg.png` | Average ping-pong rate per algorithm |
+| `performance_pprate_sum.png` | Total ping-pong rate per algorithm |
+| `reduction_vs_a3.png` | Percentage reduction in handovers/ping-pongs vs A3 baseline |
+| `rsrp_kde.png` | Kernel density estimate of RSRP distributions |
+| `rsrp_violin.png` | Violin plot of RSRP distributions |
+| `rsrp_boxplot.png` | Box plot of RSRP distributions |
+| `rsrp_raincloud.png` | Raincloud plot (KDE + strip + box) |
+| `rsrp_ema.png` | Exponential moving average of RSRP over time |
+| `rsrp_raw.png` | Raw RSRP scatter over time |
+| `rsrp_mean_bar.png` | Mean RSRP per algorithm (with 95% CI) |
+| `rsrp_std_bar.png` | RSRP standard deviation per algorithm |
+| `rsrp_fft.png` | FFT power spectrum of RSRP signal |
+| `rsrp_cloud.png` | RSRP point cloud with trend lines |
 
 ---
 
@@ -438,13 +610,15 @@ This produces a penalty range of `0.0` (fully cooled down) to `0.5` (immediate r
 - [x] Shadow fading (Gudmundson correlated log-normal)
 - [x] Fast fading (Rician LOS / Rayleigh NLOS)
 - [x] Radio-specific BS parameters (LTE Band 3 / NR n78)
-- [x] QNetwork architecture (14 → 256 → 128 → 64 → 4, GELU)
+- [x] QNetwork architecture (14 -> 256 -> 128 -> 64 -> 4, GELU)
 - [x] Top-k tower filtering and direction-aware scoring (helpers module)
 - [x] DDQN handover decision logic in UserEquipment
-- [x] Conditional Handover (CHO) post-processing — UE-side bearing/cosine similarity re-ranking
+- [x] Confidence-gated Conditional Handover (CHO) — softmax thresholding + cosine similarity fallback
 - [x] Trained DDQN agent evaluation vs 3GPP A3 baseline
-- [x] Multi-seed A3 baseline testing (`test_rsrp.py`)
-- [x] CHO weight sweep testing (`test_cho.py`)
+- [x] Multi-seed comparison of all 3 algorithms (`test_rsrp.py`)
+- [x] Cumulative RSRP evaluation with training data re-logging (`test_rsrp_cumulative.py`)
+- [x] CHO confidence threshold sweep (`test_cho.py`)
+- [x] Visualization pipeline (plotter: CSV extraction + Matplotlib/Seaborn charts)
 
 ---
 
@@ -452,14 +626,16 @@ This produces a penalty range of `0.0` (fully cooled down) to `0.5` (immediate r
 
 | Library | Purpose |
 |---|---|
-| `numpy` | Signal calculations |
+| `numpy` | Signal calculations, array operations |
 | `folium` | Interactive map visualization |
 | `requests` | Overpass API + OpenCellID HTTP requests |
 | `python-dotenv` | Load API key from `.env` |
 | `colorama` | Colored terminal output |
 | `torch` | DDQN neural network (PyTorch) |
 | `gymnasium` | RL environment interface |
-| `tensorboard` | Training and signal metric visualization |
+| `tensorboard` | Training and signal metric visualization + event file reading |
+| `matplotlib` | Chart generation (plotter) |
+| `seaborn` | Statistical visualizations (plotter) |
 | SUMO | Traffic simulation engine (external) |
 
 ---
@@ -473,7 +649,7 @@ This simulation is a **system-level abstraction** of the 5G NR physical layer, n
 | **LOS/NLOS** | Probability function based on distance | Hard 5 m cutoff | Simulates dense urban canyon where UEs are almost always NLOS |
 | **Antennas** | Massive MIMO with active beamforming | Static isotropic gain (`G_tx`) | Isolates handover algorithm evaluation from beam-tracking mechanics |
 | **Path Loss** | Dual-slope model with breakpoint distances | Standard log-distance model | Widely accepted balance of realism and computational efficiency for RL |
-| **RLF detection** | SINR/BLER-based Qout with T310/N310/N311 timers | Single RSRP threshold per-RAT (≈ -116 dBm) | Captures cell-edge failure events without full L1/RRC timer state machine |
+| **RLF detection** | SINR/BLER-based Qout with T310/N310/N311 timers | Single RSRP threshold per-RAT (~ -116 dBm) | Captures cell-edge failure events without full L1/RRC timer state machine |
 | **Handover delay** | Variable interruption (search, SI acquisition, RACH) | Fixed per-RAT (NR: 20 ms, LTE: 40 ms) | Matches 3GPP intra-freq known-cell baseline from TS 38.133/36.133 |
 
 See [architecture.md](architecture.md) for system architecture diagrams and [sources.md](sources.md) for full technical references and justifications.
