@@ -17,6 +17,22 @@ import seaborn as sns
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
 # ---------------------------------------------------------------------------
+# Global style — bold, visible text on every graph
+# ---------------------------------------------------------------------------
+plt.rcParams.update({
+    "font.weight":        "bold",
+    "axes.labelweight":   "bold",
+    "axes.titleweight":   "bold",
+    "figure.titleweight": "bold",
+    "font.size":          12,
+    "axes.labelsize":     13,
+    "axes.titlesize":     15,
+    "xtick.labelsize":    11,
+    "ytick.labelsize":    11,
+    "legend.fontsize":    11,
+})
+
+# ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -551,7 +567,7 @@ def plot_reduction_vs_a3(csv_path: Path):
     )
     ax.set_xticks(x)
     ax.set_xticklabels(x_labels, fontsize=11)
-    ax.legend(fontsize=10)
+    ax.legend(fontsize=10, loc="lower right")
 
     for bar in list(bars1) + list(bars2):
         h = bar.get_height()
@@ -734,6 +750,218 @@ def _read_rsrp_csv(csv_path: Path) -> dict[str, tuple[list, list]]:
     return {a: (algo_steps[a], algo_vals[a]) for a in ALGORITHMS}
 
 
+def plot_rsrp_mean_bar(csv_path: Path):
+    """Bar chart of mean RSRP for each algorithm."""
+    algo_rsrp = {a: [] for a in ALGORITHMS}
+    with open(csv_path) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            for algo in ALGORITHMS:
+                val = row[algo]
+                if val:
+                    algo_rsrp[algo].append(float(val))
+
+    x_labels = [ALGO_DISPLAY[a] for a in ALGORITHMS]
+    means = [np.mean(algo_rsrp[a]) for a in ALGORITHMS]
+    colors = [ALGO_COLORS[a] for a in ALGORITHMS]
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    bars = ax.bar(
+        x_labels,
+        means,
+        color=colors,
+        edgecolor="black",
+        linewidth=0.5,
+        width=0.5,
+    )
+
+    for bar in bars:
+        h = bar.get_height()
+        ax.annotate(
+            f"{h:.4f}",
+            xy=(bar.get_x() + bar.get_width() / 2, h),
+            xytext=(0, 4),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+        )
+
+    ax.set_ylabel("Mean RSRP (Normalized)", fontsize=12)
+    ax.set_title(
+        "Mean RSRP Across Algorithms (10 Seeds Avg)",
+        fontsize=14,
+        fontweight="bold",
+    )
+    ax.grid(True, axis="y", alpha=0.3)
+    fig.tight_layout()
+    out = CSV_DIR.parent / "rsrp_mean_bar.png"
+    fig.savefig(out, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  [PLOT] {out.name}")
+
+
+def plot_rsrp_std_bar(csv_path: Path):
+    """Bar chart of RSRP standard deviation for each algorithm."""
+    algo_rsrp = {a: [] for a in ALGORITHMS}
+    with open(csv_path) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            for algo in ALGORITHMS:
+                val = row[algo]
+                if val:
+                    algo_rsrp[algo].append(float(val))
+
+    x_labels = [ALGO_DISPLAY[a] for a in ALGORITHMS]
+    stds = [np.std(algo_rsrp[a]) for a in ALGORITHMS]
+    colors = [ALGO_COLORS[a] for a in ALGORITHMS]
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    bars = ax.bar(
+        x_labels,
+        stds,
+        color=colors,
+        edgecolor="black",
+        linewidth=0.5,
+        width=0.5,
+    )
+
+    for bar in bars:
+        h = bar.get_height()
+        ax.annotate(
+            f"{h:.4f}",
+            xy=(bar.get_x() + bar.get_width() / 2, h),
+            xytext=(0, 4),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+        )
+
+    ax.set_ylabel("RSRP Std Dev (Normalized)", fontsize=12)
+    ax.set_title(
+        "RSRP Standard Deviation Across Algorithms (10 Seeds Avg)",
+        fontsize=14,
+        fontweight="bold",
+    )
+    ax.grid(True, axis="y", alpha=0.3)
+    fig.tight_layout()
+    out = CSV_DIR.parent / "rsrp_std_bar.png"
+    fig.savefig(out, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  [PLOT] {out.name}")
+
+
+def plot_rsrp_cloud(csv_path: Path):
+    """Cloud (strip) plot of RSRP values for each algorithm."""
+    algo_rsrp = {a: [] for a in ALGORITHMS}
+    with open(csv_path) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            for algo in ALGORITHMS:
+                val = row[algo]
+                if val:
+                    algo_rsrp[algo].append(float(val))
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    for i, algo in enumerate(ALGORITHMS):
+        vals = np.array(algo_rsrp[algo])
+        jitter = np.random.default_rng(42).uniform(-0.15, 0.15, size=len(vals))
+        ax.scatter(
+            i + jitter,
+            vals,
+            color=ALGO_COLORS[algo],
+            alpha=0.08,
+            s=6,
+            edgecolors="none",
+        )
+        # Overlay mean marker
+        ax.scatter(
+            i, np.mean(vals), color=ALGO_COLORS[algo],
+            s=120, marker="D", edgecolors="black", linewidths=0.8,
+            zorder=5, label=f"{ALGO_DISPLAY[algo]} (mean={np.mean(vals):.4f})",
+        )
+
+    ax.set_xticks(range(len(ALGORITHMS)))
+    ax.set_xticklabels([ALGO_DISPLAY[a] for a in ALGORITHMS], fontsize=11)
+    ax.set_ylabel("RSRP (Normalized)", fontsize=12)
+    ax.set_title(
+        "RSRP Cloud Plot Across Algorithms (10 Seeds Avg)",
+        fontsize=14,
+        fontweight="bold",
+    )
+    ax.legend(fontsize=10)
+    ax.grid(True, axis="y", alpha=0.3)
+    fig.tight_layout()
+    out = CSV_DIR.parent / "rsrp_cloud.png"
+    fig.savefig(out, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  [PLOT] {out.name}")
+
+
+def plot_rsrp_raincloud(csv_path: Path):
+    """Raincloud plot: half-violin + jittered strip + boxplot for RSRP."""
+    algo_rsrp = {a: [] for a in ALGORITHMS}
+    with open(csv_path) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            for algo in ALGORITHMS:
+                val = row[algo]
+                if val:
+                    algo_rsrp[algo].append(float(val))
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    rng = np.random.default_rng(42)
+
+    for i, algo in enumerate(ALGORITHMS):
+        vals = np.array(algo_rsrp[algo])
+        color = ALGO_COLORS[algo]
+
+        # Half-violin (KDE) on top side
+        from scipy.stats import gaussian_kde
+        kde = gaussian_kde(vals, bw_method=0.3)
+        y_range = np.linspace(vals.min(), vals.max(), 300)
+        density = kde(y_range)
+        density = density / density.max() * 0.35  # scale width
+        ax.fill_betweenx(
+            y_range, i - density, i,
+            color=color, alpha=0.5, edgecolor="black", linewidth=0.5,
+        )
+
+        # Boxplot on center
+        bp = ax.boxplot(
+            vals, positions=[i], widths=0.08, vert=True,
+            patch_artist=True, showfliers=False,
+            boxprops=dict(facecolor=color, alpha=0.9, edgecolor="black"),
+            medianprops=dict(color="black", linewidth=1.5),
+            whiskerprops=dict(color="black", linewidth=0.8),
+            capprops=dict(color="black", linewidth=0.8),
+        )
+
+        # Jittered strip on bottom side
+        jitter = rng.uniform(0.05, 0.3, size=len(vals))
+        ax.scatter(
+            i + jitter, vals,
+            color=color, alpha=0.06, s=4, edgecolors="none",
+        )
+
+    ax.set_xticks(range(len(ALGORITHMS)))
+    ax.set_xticklabels([ALGO_DISPLAY[a] for a in ALGORITHMS], fontsize=11)
+    ax.set_ylabel("RSRP (Normalized)", fontsize=12)
+    ax.set_title(
+        "RSRP Raincloud Plot Across Algorithms (10 Seeds Avg)",
+        fontsize=14,
+        fontweight="bold",
+    )
+    ax.grid(True, axis="y", alpha=0.3)
+    fig.tight_layout()
+    out = CSV_DIR.parent / "rsrp_raincloud.png"
+    fig.savefig(out, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  [PLOT] {out.name}")
+
+
 def plot_rsrp_raw(csv_path: Path):
     """Raw RSRP values over simulation timesteps for each algorithm."""
     data = _read_rsrp_csv(csv_path)
@@ -886,5 +1114,9 @@ if __name__ == "__main__":
     plot_rsrp_boxplot(rsrp_csv)
     plot_rsrp_violin(rsrp_csv)
     plot_rsrp_fft(rsrp_csv)
+    plot_rsrp_mean_bar(rsrp_csv)
+    plot_rsrp_std_bar(rsrp_csv)
+    plot_rsrp_cloud(rsrp_csv)
+    plot_rsrp_raincloud(rsrp_csv)
 
     print("\nDone.")

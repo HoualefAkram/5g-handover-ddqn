@@ -37,9 +37,7 @@ class UserEquipment:
         serving_bs: Optional[BaseTower] = None,
         print_logs_on_movement: bool = False,
         handover_algorithm: HandoverAlgorithm = HandoverAlgorithm.A3_RSRP_3GPP,
-        cho_confidence_threshold: float = 0.51,
-        cho_similarity_weight: float = 0.01,
-        cho_q_weight: float = 0.99,
+        cho_confidence_threshold: float = 0.55,
     ):
         self.id: int = id
         self.g_rx: float = g_rx  # 0 to +2 dBi
@@ -53,8 +51,6 @@ class UserEquipment:
         self.connection_history: list[tuple[int, float]] = []
         self.handover_algorithm = handover_algorithm
         self.cho_confidence_threshold = cho_confidence_threshold
-        self.cho_similarity_weight = cho_similarity_weight
-        self.cho_q_weight = cho_q_weight
         self.speed = 0
         self.angle = 0
         self.rlf_count = 0
@@ -174,8 +170,6 @@ class UserEquipment:
             case HandoverAlgorithm.DDQN_CHO:
                 target_bs = self.check_handover_ddqn(
                     confidence_threshold=self.cho_confidence_threshold,
-                    similarity_weight=self.cho_similarity_weight,
-                    q_weight=self.cho_q_weight,
                 )
             case HandoverAlgorithm.DDQN:
                 target_bs = self.check_handover_ddqn_only()
@@ -333,8 +327,6 @@ class UserEquipment:
     def check_handover_ddqn(
         self,
         confidence_threshold: float,
-        similarity_weight: float,
-        q_weight: float,
     ):
         """DDQN + confidence-gated CHO: only apply similarity tiebreaker when DDQN is uncertain."""
         if not self.generated_reports:
@@ -420,6 +412,9 @@ class UserEquipment:
             return target_bs
         # 5- DDQN is uncertain — use weighted sum of softmax Q + similarity to break tie
         q_blend = softmax_qs
+        similarity_weight = min(max((top_2[0][1] - top_2[1][1]), 0.0), 1.0)
+        q_weight = 1 - similarity_weight
+
         weights = [similarity_weight, q_weight]
         scores = []
         similarities = []

@@ -255,8 +255,6 @@ if __name__ == "__main__":
                 print_logs_on_movement=False,
                 handover_algorithm=HandoverAlgorithm.DDQN_CHO,
                 cho_confidence_threshold=ct,
-                cho_similarity_weight=0.50,
-                cho_q_weight=0.50,
             )
 
             print(
