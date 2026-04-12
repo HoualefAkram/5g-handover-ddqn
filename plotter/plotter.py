@@ -228,6 +228,7 @@ def plot_training(csv_path: Path):
     lines = ax1.get_lines() + ax2.get_lines() + ax3.get_lines()
     labels = [l.get_label() for l in lines]
     ax1.legend(lines, labels, loc="upper right", fontsize=10)
+    ax1.grid(True, alpha=0.3)
 
     fig.suptitle("DDQN Training Metrics", fontsize=14, fontweight="bold")
     fig.tight_layout()
@@ -286,6 +287,7 @@ def plot_performance_bars(csv_path: Path):
     ax.set_xticks(x)
     ax.set_xticklabels(x_labels, fontsize=11)
     ax.legend(fontsize=10)
+    ax.grid(True, axis="y", alpha=0.3)
 
     # Value annotations
     for bar in list(bars1) + list(bars2):
@@ -335,6 +337,7 @@ def plot_rsrp_kde(csv_path: Path):
         "RSRP Distribution (KDE) Across Algorithms", fontsize=14, fontweight="bold"
     )
     ax.legend(fontsize=11)
+    ax.grid(True, alpha=0.3)
     fig.tight_layout()
     out = CSV_DIR.parent / "rsrp_kde.png"
     fig.savefig(out, dpi=200, bbox_inches="tight")
@@ -391,6 +394,7 @@ def plot_performance_bars_sum(csv_path: Path):
     ax.set_xticks(x)
     ax.set_xticklabels(x_labels, fontsize=11)
     ax.legend(fontsize=10)
+    ax.grid(True, axis="y", alpha=0.3)
 
     for bar in list(bars1) + list(bars2):
         h = bar.get_height()
@@ -447,6 +451,7 @@ def _plot_ho_pprate_bars(csv_path: Path, agg_key: str, title: str, out_name: str
     ax1.set_xticks(x)
     ax1.set_xticklabels(x_labels, fontsize=11)
     ax1.yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
+    ax1.grid(True, axis="y", alpha=0.3)
 
     ax2 = ax1.twinx()
     bars2 = ax2.bar(
@@ -586,6 +591,7 @@ def plot_reduction_vs_a3(csv_path: Path):
         )
 
     ax.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.1f%%"))
+    ax.grid(True, axis="y", alpha=0.3)
     fig.tight_layout()
     out = CSV_DIR.parent / "reduction_vs_a3.png"
     fig.savefig(out, dpi=200, bbox_inches="tight")
@@ -1006,6 +1012,7 @@ def plot_rsrp_raw(csv_path: Path):
         "Raw RSRP Over Time (Averaged Across 10 Seeds)", fontsize=14, fontweight="bold"
     )
     ax.legend(fontsize=11)
+    ax.grid(True, alpha=0.3)
     fig.tight_layout()
     out = CSV_DIR.parent / "rsrp_raw.png"
     fig.savefig(out, dpi=200, bbox_inches="tight")
@@ -1043,6 +1050,7 @@ def plot_rsrp_ema(csv_path: Path, span: int = 100):
     ax.set_ylabel("RSRP (Normalized)", fontsize=12)
     ax.set_title("RSRP with Exponential Moving Average", fontsize=14, fontweight="bold")
     ax.legend(fontsize=11)
+    ax.grid(True, alpha=0.3)
     fig.tight_layout()
     out = CSV_DIR.parent / "rsrp_ema.png"
     fig.savefig(out, dpi=200, bbox_inches="tight")
