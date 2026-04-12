@@ -106,7 +106,7 @@ This simulator models that process from first principles using real map data, re
 
 **Python dependencies:**
 ```bash
-pip install numpy folium requests python-dotenv colorama torch gymnasium tensorboard matplotlib seaborn
+pip install -r requirements.txt
 ```
 
 **SUMO (Simulation of Urban Mobility):**
