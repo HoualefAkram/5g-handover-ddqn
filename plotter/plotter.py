@@ -25,14 +25,18 @@ plt.rcParams.update(
         "axes.labelweight": "bold",
         "axes.titleweight": "bold",
         "figure.titleweight": "bold",
-        "font.size": 12,
-        "axes.labelsize": 13,
-        "axes.titlesize": 15,
-        "xtick.labelsize": 11,
-        "ytick.labelsize": 11,
-        "legend.fontsize": 11,
+        "font.size": 16,
+        "axes.labelsize": 16,
+        "axes.titlesize": 18,
+        "figure.titlesize": 18,
+        "xtick.labelsize": 15,
+        "ytick.labelsize": 15,
+        "legend.fontsize": 10,
     }
 )
+
+# Canonical annotation font size (used for ax.annotate calls across all plots)
+ANNOTATION_FONTSIZE = 9
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -204,21 +208,21 @@ def plot_training(csv_path: Path):
     color_e = "#27ae60"
 
     # Axis 1: Reward
-    ax1.set_xlabel("Episode", fontsize=12)
-    ax1.set_ylabel("Total Reward", color=color_r, fontsize=12)
+    ax1.set_xlabel("Episode")
+    ax1.set_ylabel("Total Reward", color=color_r)
     ax1.plot(episodes, rewards, color=color_r, alpha=0.8, linewidth=0.8, label="Reward")
     ax1.tick_params(axis="y", labelcolor=color_r)
 
     # Axis 2: Loss
     ax2 = ax1.twinx()
-    ax2.set_ylabel("Average Loss", color=color_l, fontsize=12)
+    ax2.set_ylabel("Average Loss", color=color_l)
     ax2.plot(episodes, losses, color=color_l, alpha=0.8, linewidth=0.8, label="Loss")
     ax2.tick_params(axis="y", labelcolor=color_l)
 
     # Axis 3: Epsilon
     ax3 = ax1.twinx()
     ax3.spines["right"].set_position(("axes", 1.12))
-    ax3.set_ylabel("Epsilon", color=color_e, fontsize=12)
+    ax3.set_ylabel("Epsilon", color=color_e)
     ax3.plot(
         episodes, epsilons, color=color_e, alpha=0.8, linewidth=0.8, label="Epsilon"
     )
@@ -227,10 +231,10 @@ def plot_training(csv_path: Path):
     # Combined legend
     lines = ax1.get_lines() + ax2.get_lines() + ax3.get_lines()
     labels = [l.get_label() for l in lines]
-    ax1.legend(lines, labels, loc="upper right", fontsize=10)
+    ax1.legend(lines, labels, loc="upper right")
     ax1.grid(True, alpha=0.3)
 
-    fig.suptitle("DDQN Training Metrics", fontsize=14, fontweight="bold")
+    fig.suptitle("DDQN Training Metrics")
     fig.tight_layout()
     out = CSV_DIR.parent / "reward_loss.png"
     fig.savefig(out, dpi=200, bbox_inches="tight")
@@ -280,13 +284,11 @@ def plot_performance_bars(csv_path: Path):
         alpha=0.75,
     )
 
-    ax.set_ylabel("Count", fontsize=12)
-    ax.set_title(
-        "Average Handovers & Pingpongs (10 Seeds)", fontsize=14, fontweight="bold"
-    )
+    ax.set_ylabel("Count")
+    ax.set_title("Average Handovers & Pingpongs (10 Seeds)")
     ax.set_xticks(x)
-    ax.set_xticklabels(x_labels, fontsize=11)
-    ax.legend(fontsize=10)
+    ax.set_xticklabels(x_labels)
+    ax.legend()
     ax.grid(True, axis="y", alpha=0.3)
 
     # Value annotations
@@ -299,7 +301,7 @@ def plot_performance_bars(csv_path: Path):
             textcoords="offset points",
             ha="center",
             va="bottom",
-            fontsize=9,
+            fontsize=ANNOTATION_FONTSIZE,
         )
 
     ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
@@ -331,12 +333,10 @@ def plot_rsrp_kde(csv_path: Path):
             ax=ax,
         )
 
-    ax.set_xlabel("Averaged RSRP (Normalized)", fontsize=12)
-    ax.set_ylabel("Density", fontsize=12)
-    ax.set_title(
-        "RSRP Distribution (KDE) Across Algorithms", fontsize=14, fontweight="bold"
-    )
-    ax.legend(fontsize=11)
+    ax.set_xlabel("Averaged RSRP (Normalized)")
+    ax.set_ylabel("Density")
+    ax.set_title("RSRP Distribution (KDE) Across Algorithms")
+    ax.legend()
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
     out = CSV_DIR.parent / "rsrp_kde.png"
@@ -387,13 +387,11 @@ def plot_performance_bars_sum(csv_path: Path):
         alpha=0.75,
     )
 
-    ax.set_ylabel("Count", fontsize=12)
-    ax.set_title(
-        "Total Handovers & Pingpongs (Sum of 10 Seeds)", fontsize=14, fontweight="bold"
-    )
+    ax.set_ylabel("Count")
+    ax.set_title("Total Handovers & Pingpongs (Sum of 10 Seeds)")
     ax.set_xticks(x)
-    ax.set_xticklabels(x_labels, fontsize=11)
-    ax.legend(fontsize=10)
+    ax.set_xticklabels(x_labels)
+    ax.legend()
     ax.grid(True, axis="y", alpha=0.3)
 
     for bar in list(bars1) + list(bars2):
@@ -405,7 +403,7 @@ def plot_performance_bars_sum(csv_path: Path):
             textcoords="offset points",
             ha="center",
             va="bottom",
-            fontsize=9,
+            fontsize=ANNOTATION_FONTSIZE,
         )
 
     ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
@@ -447,9 +445,9 @@ def _plot_ho_pprate_bars(csv_path: Path, agg_key: str, title: str, out_name: str
         edgecolor="black",
         linewidth=0.5,
     )
-    ax1.set_ylabel("Handovers", fontsize=12)
+    ax1.set_ylabel("Handovers")
     ax1.set_xticks(x)
-    ax1.set_xticklabels(x_labels, fontsize=11)
+    ax1.set_xticklabels(x_labels)
     ax1.yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
     ax1.grid(True, axis="y", alpha=0.3)
 
@@ -465,7 +463,7 @@ def _plot_ho_pprate_bars(csv_path: Path, agg_key: str, title: str, out_name: str
         hatch="///",
         alpha=0.75,
     )
-    ax2.set_ylabel("Pingpong Rate (%)", fontsize=12)
+    ax2.set_ylabel("Pingpong Rate (%)")
 
     for bar in bars1:
         h = bar.get_height()
@@ -476,7 +474,7 @@ def _plot_ho_pprate_bars(csv_path: Path, agg_key: str, title: str, out_name: str
             textcoords="offset points",
             ha="center",
             va="bottom",
-            fontsize=9,
+            fontsize=ANNOTATION_FONTSIZE,
         )
     for bar in bars2:
         h = bar.get_height()
@@ -487,14 +485,14 @@ def _plot_ho_pprate_bars(csv_path: Path, agg_key: str, title: str, out_name: str
             textcoords="offset points",
             ha="center",
             va="bottom",
-            fontsize=9,
+            fontsize=ANNOTATION_FONTSIZE,
         )
 
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines1 + lines2, labels1 + labels2, fontsize=10)
+    ax1.legend(lines1 + lines2, labels1 + labels2)
 
-    fig.suptitle(title, fontsize=14, fontweight="bold")
+    fig.suptitle(title)
     fig.tight_layout()
     out = CSV_DIR.parent / out_name
     fig.savefig(out, dpi=200, bbox_inches="tight")
@@ -568,15 +566,11 @@ def plot_reduction_vs_a3(csv_path: Path):
         alpha=0.75,
     )
 
-    ax.set_ylabel("Reduction vs A3-RSRP (%)", fontsize=12)
-    ax.set_title(
-        "Improvement Over A3-RSRP Baseline (10 Seeds Avg)",
-        fontsize=14,
-        fontweight="bold",
-    )
+    ax.set_ylabel("Reduction vs A3-RSRP (%)")
+    ax.set_title("Improvement Over A3-RSRP Baseline (10 Seeds Avg)")
     ax.set_xticks(x)
-    ax.set_xticklabels(x_labels, fontsize=11)
-    ax.legend(fontsize=8, loc="upper center", bbox_to_anchor=(0.59, 1.0))
+    ax.set_xticklabels(x_labels)
+    ax.legend(loc="upper center", bbox_to_anchor=(0.59, 1.0))
 
     for bar in list(bars1) + list(bars2):
         h = bar.get_height()
@@ -587,7 +581,7 @@ def plot_reduction_vs_a3(csv_path: Path):
             textcoords="offset points",
             ha="center",
             va="bottom",
-            fontsize=9,
+            fontsize=ANNOTATION_FONTSIZE,
         )
 
     ax.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.1f%%"))
@@ -631,12 +625,8 @@ def plot_rsrp_boxplot(csv_path: Path):
         median.set_color("black")
         median.set_linewidth(1.5)
 
-    ax.set_ylabel("Averaged RSRP (Normalized)", fontsize=12)
-    ax.set_title(
-        "RSRP Distribution (Box Plot) Across Algorithms",
-        fontsize=14,
-        fontweight="bold",
-    )
+    ax.set_ylabel("Averaged RSRP (Normalized)")
+    ax.set_title("RSRP Distribution (Box Plot) Across Algorithms")
     ax.grid(True, axis="y", alpha=0.3)
     fig.tight_layout()
     out = CSV_DIR.parent / "rsrp_boxplot.png"
@@ -682,18 +672,10 @@ def plot_rsrp_violin(csv_path: Path):
         parts[key].set_linewidth(0.8)
 
     ax.set_xticks(range(len(ALGORITHMS)))
-    ax.set_xticklabels([ALGO_DISPLAY[a] for a in ALGORITHMS], fontsize=11)
-    ax.set_ylabel("Averaged RSRP (Normalized)", fontsize=12)
-    ax.set_title(
-        "RSRP Distribution (Violin Plot) Across Algorithms",
-        fontsize=14,
-        fontweight="bold",
-    )
-    ax.legend(
-        [parts["cmedians"], parts["cmeans"]],
-        ["Median", "Mean"],
-        fontsize=10,
-    )
+    ax.set_xticklabels([ALGO_DISPLAY[a] for a in ALGORITHMS])
+    ax.set_ylabel("Averaged RSRP (Normalized)")
+    ax.set_title("RSRP Distribution (Violin Plot) Across Algorithms")
+    ax.legend([parts["cmedians"], parts["cmeans"]], ["Median", "Mean"])
     ax.grid(True, axis="y", alpha=0.3)
     fig.tight_layout()
     out = CSV_DIR.parent / "rsrp_violin.png"
@@ -731,10 +713,10 @@ def plot_rsrp_fft(csv_path: Path):
             label=ALGO_DISPLAY[algo],
         )
 
-    ax.set_xlabel("Normalized Frequency", fontsize=12)
-    ax.set_ylabel("Magnitude", fontsize=12)
-    ax.set_title("FFT of RSRP Signal Across Algorithms", fontsize=14, fontweight="bold")
-    ax.legend(fontsize=11)
+    ax.set_xlabel("Normalized Frequency")
+    ax.set_ylabel("Magnitude")
+    ax.set_title("FFT of RSRP Signal Across Algorithms")
+    ax.legend()
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
     out = CSV_DIR.parent / "rsrp_fft.png"
@@ -792,15 +774,11 @@ def plot_rsrp_mean_bar(csv_path: Path):
             textcoords="offset points",
             ha="center",
             va="bottom",
-            fontsize=10,
+            fontsize=ANNOTATION_FONTSIZE,
         )
 
-    ax.set_ylabel("Mean RSRP (Normalized)", fontsize=12)
-    ax.set_title(
-        "Mean RSRP Across Algorithms (10 Seeds Avg)",
-        fontsize=14,
-        fontweight="bold",
-    )
+    ax.set_ylabel("Mean RSRP (Normalized)")
+    ax.set_title("Mean RSRP Across Algorithms (10 Seeds Avg)")
     ax.grid(True, axis="y", alpha=0.3)
     fig.tight_layout()
     out = CSV_DIR.parent / "rsrp_mean_bar.png"
@@ -843,15 +821,11 @@ def plot_rsrp_std_bar(csv_path: Path):
             textcoords="offset points",
             ha="center",
             va="bottom",
-            fontsize=10,
+            fontsize=ANNOTATION_FONTSIZE,
         )
 
-    ax.set_ylabel("RSRP Std Dev (Normalized)", fontsize=12)
-    ax.set_title(
-        "RSRP Standard Deviation Across Algorithms (10 Seeds Avg)",
-        fontsize=14,
-        fontweight="bold",
-    )
+    ax.set_ylabel("RSRP Std Dev (Normalized)")
+    ax.set_title("RSRP Standard Deviation Across Algorithms (10 Seeds Avg)")
     ax.grid(True, axis="y", alpha=0.3)
     fig.tight_layout()
     out = CSV_DIR.parent / "rsrp_std_bar.png"
@@ -898,14 +872,10 @@ def plot_rsrp_cloud(csv_path: Path):
         )
 
     ax.set_xticks(range(len(ALGORITHMS)))
-    ax.set_xticklabels([ALGO_DISPLAY[a] for a in ALGORITHMS], fontsize=11)
-    ax.set_ylabel("RSRP (Normalized)", fontsize=12)
-    ax.set_title(
-        "RSRP Cloud Plot Across Algorithms (10 Seeds Avg)",
-        fontsize=14,
-        fontweight="bold",
-    )
-    ax.legend(fontsize=10)
+    ax.set_xticklabels([ALGO_DISPLAY[a] for a in ALGORITHMS])
+    ax.set_ylabel("RSRP (Normalized)")
+    ax.set_title("RSRP Cloud Plot Across Algorithms (10 Seeds Avg)")
+    ax.legend()
     ax.grid(True, axis="y", alpha=0.3)
     fig.tight_layout()
     out = CSV_DIR.parent / "rsrp_cloud.png"
@@ -975,13 +945,9 @@ def plot_rsrp_raincloud(csv_path: Path):
         )
 
     ax.set_xticks(range(len(ALGORITHMS)))
-    ax.set_xticklabels([ALGO_DISPLAY[a] for a in ALGORITHMS], fontsize=11)
-    ax.set_ylabel("RSRP (Normalized)", fontsize=12)
-    ax.set_title(
-        "RSRP Raincloud Plot Across Algorithms (10 Seeds Avg)",
-        fontsize=14,
-        fontweight="bold",
-    )
+    ax.set_xticklabels([ALGO_DISPLAY[a] for a in ALGORITHMS])
+    ax.set_ylabel("RSRP (Normalized)")
+    ax.set_title("RSRP Raincloud Plot Across Algorithms (10 Seeds Avg)")
     ax.grid(True, axis="y", alpha=0.3)
     fig.tight_layout()
     out = CSV_DIR.parent / "rsrp_raincloud.png"
@@ -1006,12 +972,10 @@ def plot_rsrp_raw(csv_path: Path):
             label=ALGO_DISPLAY[algo],
         )
 
-    ax.set_xlabel("Simulation Timestep", fontsize=12)
-    ax.set_ylabel("Averaged RSRP (Normalized)", fontsize=12)
-    ax.set_title(
-        "Raw RSRP Over Time (Averaged Across 10 Seeds)", fontsize=14, fontweight="bold"
-    )
-    ax.legend(fontsize=11)
+    ax.set_xlabel("Simulation Timestep")
+    ax.set_ylabel("Averaged RSRP (Normalized)")
+    ax.set_title("Raw RSRP Over Time (Averaged Across 10 Seeds)")
+    ax.legend()
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
     out = CSV_DIR.parent / "rsrp_raw.png"
@@ -1046,10 +1010,10 @@ def plot_rsrp_ema(csv_path: Path, span: int = 100):
             label=f"{ALGO_DISPLAY[algo]} (EMA {span})",
         )
 
-    ax.set_xlabel("Simulation Timestep", fontsize=12)
-    ax.set_ylabel("RSRP (Normalized)", fontsize=12)
-    ax.set_title("RSRP with Exponential Moving Average", fontsize=14, fontweight="bold")
-    ax.legend(fontsize=11)
+    ax.set_xlabel("Simulation Timestep")
+    ax.set_ylabel("RSRP (Normalized)")
+    ax.set_title("RSRP with Exponential Moving Average")
+    ax.legend()
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
     out = CSV_DIR.parent / "rsrp_ema.png"
@@ -1095,14 +1059,10 @@ def plot_rsrp_ema_zoomed(csv_path: Path, span: int = 100):
         )
 
     ax.set_ylim(y_lo * 100, y_hi * 100)
-    ax.set_xlabel("Simulation Timestep", fontsize=12)
-    ax.set_ylabel("RSRP Signal Quality (%)", fontsize=12)
-    ax.set_title(
-        f"RSRP — Exponential Moving Average (span={span}, zoomed)",
-        fontsize=14,
-        fontweight="bold",
-    )
-    ax.legend(fontsize=11)
+    ax.set_xlabel("Simulation Timestep")
+    ax.set_ylabel("RSRP Signal Quality (%)")
+    ax.set_title(f"RSRP — Exponential Moving Average (span={span}, zoomed)")
+    ax.legend()
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
     out = CSV_DIR.parent / "rsrp_ema_zoomed.png"
