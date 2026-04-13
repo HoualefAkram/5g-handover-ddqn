@@ -44,6 +44,9 @@ ANNOTATION_FONTSIZE = 9
 BASE_DIR = Path(__file__).resolve().parent.parent
 RUNS_DIR = BASE_DIR / "outputs" / "runs"
 CSV_DIR = BASE_DIR / "plotter" / "csv"
+PLOTS_DIR = BASE_DIR / "plotter" / "plots"
+PLOTS_TITLE_DIR = PLOTS_DIR / "title"
+PLOTS_NO_TITLE_DIR = PLOTS_DIR / "no_title"
 
 ALGORITHMS = ["A3_RSRP", "DDQN", "DDQN_CHO"]
 SEED_COUNT = 10
@@ -94,6 +97,8 @@ ALGO_COLORS = {
 }
 
 CSV_DIR.mkdir(parents=True, exist_ok=True)
+PLOTS_TITLE_DIR.mkdir(parents=True, exist_ok=True)
+PLOTS_NO_TITLE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +108,21 @@ def load_ea(run_name: str) -> EventAccumulator:
     ea = EventAccumulator(str(RUNS_DIR / run_name))
     ea.Reload()
     return ea
+
+
+def _save_fig(fig, out_name: str) -> None:
+    """Save figure twice: once with titles (plots/title/), once without (plots/no_title/)."""
+    fig.savefig(PLOTS_TITLE_DIR / out_name, dpi=200, bbox_inches="tight")
+
+    # Strip axes titles and the figure-level suptitle for the no_title variant.
+    if fig._suptitle is not None:
+        fig._suptitle.set_text("")
+    for ax in fig.axes:
+        ax.set_title("")
+
+    fig.savefig(PLOTS_NO_TITLE_DIR / out_name, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  [PLOT] {out_name}")
 
 
 # ===================================================================
@@ -236,10 +256,7 @@ def plot_training(csv_path: Path):
 
     fig.suptitle("DDQN Training Metrics")
     fig.tight_layout()
-    out = CSV_DIR.parent / "reward_loss.png"
-    fig.savefig(out, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [PLOT] {out.name}")
+    _save_fig(fig, "reward_loss.png")
 
 
 def plot_performance_bars(csv_path: Path):
@@ -306,10 +323,7 @@ def plot_performance_bars(csv_path: Path):
 
     ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
     fig.tight_layout()
-    out = CSV_DIR.parent / "performance_bars.png"
-    fig.savefig(out, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [PLOT] {out.name}")
+    _save_fig(fig, "performance_bars.png")
 
 
 def plot_rsrp_kde(csv_path: Path):
@@ -339,10 +353,7 @@ def plot_rsrp_kde(csv_path: Path):
     ax.legend()
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
-    out = CSV_DIR.parent / "rsrp_kde.png"
-    fig.savefig(out, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [PLOT] {out.name}")
+    _save_fig(fig, "rsrp_kde.png")
 
 
 def plot_performance_bars_sum(csv_path: Path):
@@ -408,10 +419,7 @@ def plot_performance_bars_sum(csv_path: Path):
 
     ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
     fig.tight_layout()
-    out = CSV_DIR.parent / "performance_bars_sum.png"
-    fig.savefig(out, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [PLOT] {out.name}")
+    _save_fig(fig, "performance_bars_sum.png")
 
 
 def _plot_ho_pprate_bars(csv_path: Path, agg_key: str, title: str, out_name: str):
@@ -494,10 +502,7 @@ def _plot_ho_pprate_bars(csv_path: Path, agg_key: str, title: str, out_name: str
 
     fig.suptitle(title)
     fig.tight_layout()
-    out = CSV_DIR.parent / out_name
-    fig.savefig(out, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [PLOT] {out.name}")
+    _save_fig(fig, out_name)
 
 
 def plot_performance_pprate_avg(csv_path: Path):
@@ -587,10 +592,7 @@ def plot_reduction_vs_a3(csv_path: Path):
     ax.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.1f%%"))
     ax.grid(True, axis="y", alpha=0.3)
     fig.tight_layout()
-    out = CSV_DIR.parent / "reduction_vs_a3.png"
-    fig.savefig(out, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [PLOT] {out.name}")
+    _save_fig(fig, "reduction_vs_a3.png")
 
 
 def plot_rsrp_boxplot(csv_path: Path):
@@ -629,10 +631,7 @@ def plot_rsrp_boxplot(csv_path: Path):
     ax.set_title("RSRP Distribution (Box Plot) Across Algorithms")
     ax.grid(True, axis="y", alpha=0.3)
     fig.tight_layout()
-    out = CSV_DIR.parent / "rsrp_boxplot.png"
-    fig.savefig(out, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [PLOT] {out.name}")
+    _save_fig(fig, "rsrp_boxplot.png")
 
 
 def plot_rsrp_violin(csv_path: Path):
@@ -678,10 +677,7 @@ def plot_rsrp_violin(csv_path: Path):
     ax.legend([parts["cmedians"], parts["cmeans"]], ["Median", "Mean"])
     ax.grid(True, axis="y", alpha=0.3)
     fig.tight_layout()
-    out = CSV_DIR.parent / "rsrp_violin.png"
-    fig.savefig(out, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [PLOT] {out.name}")
+    _save_fig(fig, "rsrp_violin.png")
 
 
 def plot_rsrp_fft(csv_path: Path):
@@ -719,10 +715,7 @@ def plot_rsrp_fft(csv_path: Path):
     ax.legend()
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
-    out = CSV_DIR.parent / "rsrp_fft.png"
-    fig.savefig(out, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [PLOT] {out.name}")
+    _save_fig(fig, "rsrp_fft.png")
 
 
 def _read_rsrp_csv(csv_path: Path) -> dict[str, tuple[list, list]]:
@@ -781,10 +774,7 @@ def plot_rsrp_mean_bar(csv_path: Path):
     ax.set_title("Mean RSRP Across Algorithms (10 Seeds Avg)")
     ax.grid(True, axis="y", alpha=0.3)
     fig.tight_layout()
-    out = CSV_DIR.parent / "rsrp_mean_bar.png"
-    fig.savefig(out, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [PLOT] {out.name}")
+    _save_fig(fig, "rsrp_mean_bar.png")
 
 
 def plot_rsrp_std_bar(csv_path: Path):
@@ -828,10 +818,7 @@ def plot_rsrp_std_bar(csv_path: Path):
     ax.set_title("RSRP Standard Deviation Across Algorithms (10 Seeds Avg)")
     ax.grid(True, axis="y", alpha=0.3)
     fig.tight_layout()
-    out = CSV_DIR.parent / "rsrp_std_bar.png"
-    fig.savefig(out, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [PLOT] {out.name}")
+    _save_fig(fig, "rsrp_std_bar.png")
 
 
 def plot_rsrp_cloud(csv_path: Path):
@@ -878,10 +865,7 @@ def plot_rsrp_cloud(csv_path: Path):
     ax.legend()
     ax.grid(True, axis="y", alpha=0.3)
     fig.tight_layout()
-    out = CSV_DIR.parent / "rsrp_cloud.png"
-    fig.savefig(out, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [PLOT] {out.name}")
+    _save_fig(fig, "rsrp_cloud.png")
 
 
 def plot_rsrp_raincloud(csv_path: Path):
@@ -950,10 +934,7 @@ def plot_rsrp_raincloud(csv_path: Path):
     ax.set_title("RSRP Raincloud Plot Across Algorithms (10 Seeds Avg)")
     ax.grid(True, axis="y", alpha=0.3)
     fig.tight_layout()
-    out = CSV_DIR.parent / "rsrp_raincloud.png"
-    fig.savefig(out, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [PLOT] {out.name}")
+    _save_fig(fig, "rsrp_raincloud.png")
 
 
 def plot_rsrp_raw(csv_path: Path):
@@ -978,10 +959,7 @@ def plot_rsrp_raw(csv_path: Path):
     ax.legend()
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
-    out = CSV_DIR.parent / "rsrp_raw.png"
-    fig.savefig(out, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [PLOT] {out.name}")
+    _save_fig(fig, "rsrp_raw.png")
 
 
 def plot_rsrp_ema(csv_path: Path, span: int = 100):
@@ -1016,10 +994,7 @@ def plot_rsrp_ema(csv_path: Path, span: int = 100):
     ax.legend()
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
-    out = CSV_DIR.parent / "rsrp_ema.png"
-    fig.savefig(out, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [PLOT] {out.name}")
+    _save_fig(fig, "rsrp_ema.png")
 
 
 def plot_rsrp_ema_zoomed(csv_path: Path, span: int = 100):
@@ -1065,10 +1040,7 @@ def plot_rsrp_ema_zoomed(csv_path: Path, span: int = 100):
     ax.legend()
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
-    out = CSV_DIR.parent / "rsrp_ema_zoomed.png"
-    fig.savefig(out, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [PLOT] {out.name}")
+    _save_fig(fig, "rsrp_ema_zoomed.png")
 
 
 # ===================================================================
