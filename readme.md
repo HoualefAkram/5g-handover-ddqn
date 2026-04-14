@@ -1,4 +1,8 @@
+
+
 # 5G Handover DDQN — Learned Handover Optimization vs 3GPP A3 Baseline
+
+<img width="1517" height="613" alt="framework10" src="https://github.com/user-attachments/assets/b2f93d35-5f9e-42c0-8ad0-f54157ee27a9" />
 
 A Python-based simulator that models **User Equipment (UEs)** — cars — moving through a real city with real **Base Station Towers** fetched from OpenCellID. The simulator calculates real-time **RSRP** and **RSRQ** signal metrics using standard radio propagation models and compares three handover strategies: the **3GPP A3 baseline**, a **trained Double DQN agent**, and a **confidence-gated DDQN with Conditional Handover (CHO)** for optimized handover decisions in 5G networks.
 
